@@ -1,201 +1,222 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Calendar, 
-  AlertCircle,
-  Plus,
-  CreditCard,
-  Target,
-  Clock
-} from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Calendar, DollarSign, TrendingUp, Plus, Package } from "lucide-react";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Dashboard = () => {
-  // Mock data - will be replaced with real data
-  const monthlySpend = 89.97;
-  const annualSpend = 1079.64;
-  const totalSubscriptions = 8;
-  const upcomingRenewals = [
-    { name: "Netflix Premium", cost: 15.99, date: "2024-01-15", daysLeft: 3 },
-    { name: "Spotify Family", cost: 12.99, date: "2024-01-18", daysLeft: 6 },
-    { name: "Adobe Creative", cost: 52.99, date: "2024-01-22", daysLeft: 10 }
-  ];
+  const { subscriptions, loading } = useSubscriptions();
+  const { user } = useAuth();
 
-  const recentSubscriptions = [
-    { name: "GitHub Pro", cost: 4.00, category: "Software", added: "Hace 2 días" },
-    { name: "Figma Professional", cost: 12.00, category: "Software", added: "Hace 1 semana" }
-  ];
+  // Calculate totals from actual subscriptions
+  const calculateTotals = () => {
+    if (!subscriptions.length) return { monthly: 0, annual: 0 };
+    
+    const totals = subscriptions.reduce((acc, sub) => {
+      const cost = sub.cost || 0;
+      let monthlyAmount = 0;
+      
+      switch (sub.billing_cycle) {
+        case 'Monthly':
+          monthlyAmount = cost;
+          break;
+        case 'Quarterly':
+          monthlyAmount = cost / 3;
+          break;
+        case 'Semi-Annually':
+          monthlyAmount = cost / 6;
+          break;
+        case 'Annually':
+          monthlyAmount = cost / 12;
+          break;
+        default:
+          monthlyAmount = cost;
+      }
+      
+      acc.monthly += monthlyAmount;
+      acc.annual += monthlyAmount * 12;
+      return acc;
+    }, { monthly: 0, annual: 0 });
+    
+    return totals;
+  };
 
-  return (
-    <div className="min-h-screen bg-background-subtle">
-      {/* Header */}
-      <div className="border-b bg-background px-6 py-4">
+  const { monthly, annual } = calculateTotals();
+
+  // Get upcoming renewals (next 30 days)
+  const getUpcomingRenewals = () => {
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today);
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    
+    return subscriptions.filter(sub => {
+      const renewalDate = new Date(sub.next_renewal_date);
+      return renewalDate >= today && renewalDate <= thirtyDaysFromNow;
+    }).slice(0, 3); // Show only first 3
+  };
+
+  const upcomingRenewals = getUpcomingRenewals();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Empty state for new users
+  if (subscriptions.length === 0) {
+    return (
+      <div className="container mx-auto p-6 space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">Resumen de tus suscripciones</p>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">
+              ¡Bienvenido! Comienza agregando tus primeras suscripciones.
+            </p>
           </div>
-          <Button className="bg-gradient-primary">
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Suscripción
+        </div>
+
+        {/* Empty State */}
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="rounded-full bg-muted p-6 mb-4">
+            <Package className="h-12 w-12 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">No tienes suscripciones</h3>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            Comienza a gestionar tus gastos agregando tus primeras suscripciones.
+            Podrás ver todos tus gastos consolidados y recibir alertas de renovación.
+          </p>
+          <Link to="/subscriptions">
+            <Button size="lg" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Agregar mi primera suscripción
+            </Button>
+          </Link>
+        </div>
+
+        {/* Stats Cards - Show zeros */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Gasto Mensual</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">$0.00</div>
+              <p className="text-xs text-muted-foreground">USD por mes</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Gasto Anual</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">$0.00</div>
+              <p className="text-xs text-muted-foreground">USD por año</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Suscripciones Activas</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">servicios activos</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Resumen de tus suscripciones y gastos
+          </p>
+        </div>
+        <Link to="/subscriptions">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Agregar Suscripción
           </Button>
-        </div>
+        </Link>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="shadow-card border-card-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Gasto Mensual
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                ${monthlySpend.toFixed(2)}
-              </div>
-              <div className="flex items-center text-xs text-success">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +2.5% vs mes anterior
-              </div>
-            </CardContent>
-          </Card>
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Gasto Mensual</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${monthly.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">USD por mes</p>
+          </CardContent>
+        </Card>
 
-          <Card className="shadow-card border-card-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Gasto Anual
-              </CardTitle>
-              <Target className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                ${annualSpend.toFixed(2)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                Proyección actual
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Gasto Anual</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${annual.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">USD por año</p>
+          </CardContent>
+        </Card>
 
-          <Card className="shadow-card border-card-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Suscripciones Activas
-              </CardTitle>
-              <CreditCard className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {totalSubscriptions}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                Servicios activos
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card border-card-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Próximas Renovaciones
-              </CardTitle>
-              <AlertCircle className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {upcomingRenewals.length}
-              </div>
-              <div className="flex items-center text-xs text-warning">
-                En los próximos 30 días
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upcoming Renewals */}
-          <Card className="shadow-card border-card-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-warning" />
-                Próximas Renovaciones
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {upcomingRenewals.map((subscription, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-background-subtle rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-foreground">{subscription.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge 
-                        variant={subscription.daysLeft <= 3 ? "destructive" : "secondary"}
-                        className="text-xs"
-                      >
-                        <Clock className="h-3 w-3 mr-1" />
-                        {subscription.daysLeft} días
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{subscription.date}</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-foreground">
-                      ${subscription.cost}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {upcomingRenewals.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground">
-                  No hay renovaciones próximas
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card className="shadow-card border-card-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5 text-accent" />
-                Actividad Reciente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentSubscriptions.map((subscription, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-background-subtle rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-foreground">{subscription.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {subscription.category}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{subscription.added}</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-accent">
-                      +${subscription.cost}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              <Separator className="my-4" />
-              
-              <Button variant="outline" className="w-full">
-                Ver todas las suscripciones
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Suscripciones Activas</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{subscriptions.length}</div>
+            <p className="text-xs text-muted-foreground">servicios activos</p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Upcoming Renewals */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Próximas Renovaciones</CardTitle>
+          <CardDescription>Suscripciones que se renuevan en los próximos 30 días</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {upcomingRenewals.length > 0 ? (
+            upcomingRenewals.map((subscription) => (
+              <div key={subscription.id} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full"></div>
+                  <div>
+                    <p className="text-sm font-medium">{subscription.service_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Renueva: {new Date(subscription.next_renewal_date).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline">${subscription.cost}</Badge>
+              </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No hay renovaciones próximas</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

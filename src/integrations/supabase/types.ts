@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          account_type: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          primary_display_currency: string | null
+        }
+        Insert: {
+          account_type?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          primary_display_currency?: string | null
+        }
+        Update: {
+          account_type?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          primary_display_currency?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          alert_days_before: number | null
+          billing_cycle: string | null
+          category: string | null
+          cost: number | null
+          created_at: string
+          currency: string | null
+          enable_renewal_alert: boolean | null
+          id: string
+          next_renewal_date: string | null
+          service_name: string | null
+          team_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_days_before?: number | null
+          billing_cycle?: string | null
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          enable_renewal_alert?: boolean | null
+          id?: string
+          next_renewal_date?: string | null
+          service_name?: string | null
+          team_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alert_days_before?: number | null
+          billing_cycle?: string | null
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          enable_renewal_alert?: boolean | null
+          id?: string
+          next_renewal_date?: string | null
+          service_name?: string | null
+          team_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          id: string
+          role: string | null
+          team_id: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          role?: string | null
+          team_id?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          role?: string | null
+          team_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string | null
+          team_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string | null
+          team_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string | null
+          team_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -11,18 +11,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Settings, User, Bell } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Header() {
-  // Mock user data - will be replaced with real auth data
+  const { user: authUser, signOut } = useAuth();
+  
+  // Get user profile data
   const user = {
-    name: "Juan Pérez",
-    email: "juan@ejemplo.com",
-    accountType: "team" as "personal" | "team"
+    name: authUser?.user_metadata?.full_name || authUser?.email || "Usuario",
+    email: authUser?.email || "",
+    accountType: authUser?.user_metadata?.account_type || "personal"
   };
 
   const handleLogout = () => {
-    // TODO: Implement logout logic
-    console.log("Logout");
+    signOut();
   };
 
   return (

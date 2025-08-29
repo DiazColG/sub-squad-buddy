@@ -1,16 +1,20 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Mail, Lock, Eye, EyeOff, User, Building, UserCheck } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Signup = () => {
+  const navigate = useNavigate();
+  const { signUp, user, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accountType, setAccountType] = useState("personal");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -18,14 +22,29 @@ const Signup = () => {
     fullName: ""
   });
 
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/dashboard');
+    }
+  }, [user, loading, navigate]);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement signup logic
-    console.log("Signup attempt:", { ...formData, accountType });
+    
+    if (formData.password !== formData.confirmPassword) {
+      alert('Las contraseñas no coinciden');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    const { error } = await signUp(formData.email, formData.password, formData.fullName, accountType as 'personal' | 'team');
+    
+    setIsSubmitting(false);
   };
 
   return (
@@ -153,8 +172,8 @@ const Signup = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
-                Crear Cuenta
+              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? 'Creando cuenta...' : 'Crear Cuenta'}
               </Button>
             </form>
 

@@ -1,20 +1,37 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { signIn, user, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/dashboard');
+    }
+  }, [user, loading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    console.log("Login attempt:", { email, password });
+    setIsSubmitting(true);
+    
+    const { error } = await signIn(email, password);
+    
+    if (!error) {
+      navigate('/dashboard');
+    }
+    
+    setIsSubmitting(false);
   };
 
   return (
@@ -78,8 +95,8 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
-                Ingresar
+              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? 'Ingresando...' : 'Ingresar'}
               </Button>
             </form>
 

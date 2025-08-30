@@ -33,14 +33,14 @@ export const useSubscriptions = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching subscriptions:', error);
+        console.error('Error fetching subscriptions:', error.message || error);
         toast.error('Error al cargar suscripciones');
         return;
       }
 
       setSubscriptions(data || []);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Error:', error.message || error);
       toast.error('Error al cargar suscripciones');
     } finally {
       setLoading(false);
@@ -61,7 +61,7 @@ export const useSubscriptions = () => {
         .single();
 
       if (error) {
-        console.error('Error adding subscription:', error);
+        console.error('Error adding subscription:', error.message || error);
         toast.error('Error al agregar suscripción');
         return;
       }
@@ -69,8 +69,8 @@ export const useSubscriptions = () => {
       setSubscriptions(prev => [data, ...prev]);
       toast.success('Suscripción agregada exitosamente');
       return data;
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Error:', error.message || error);
       toast.error('Error al agregar suscripción');
     }
   };

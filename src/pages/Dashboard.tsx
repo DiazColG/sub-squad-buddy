@@ -10,11 +10,14 @@ const Dashboard = () => {
   const { subscriptions, loading } = useSubscriptions();
   const { user } = useAuth();
 
-  // Calculate totals from actual subscriptions
-  const calculateTotals = () => {
-    if (!subscriptions.length) return { monthly: 0, annual: 0 };
+  // Calculate totals from actual subscriptions grouped by currency
+  const calculateTotalsByCurrency = () => {
+    if (!subscriptions.length) return {};
     
-    const totals = subscriptions.reduce((acc, sub) => {
+    const totalsByCurrency: Record<string, { monthly: number; annual: number }> = {};
+    
+    subscriptions.forEach(sub => {
+      const currency = sub.currency || 'USD';
       const cost = sub.cost || 0;
       let monthlyAmount = 0;
       
@@ -35,15 +38,38 @@ const Dashboard = () => {
           monthlyAmount = cost;
       }
       
-      acc.monthly += monthlyAmount;
-      acc.annual += monthlyAmount * 12;
-      return acc;
-    }, { monthly: 0, annual: 0 });
+      if (!totalsByCurrency[currency]) {
+        totalsByCurrency[currency] = { monthly: 0, annual: 0 };
+      }
+      
+      totalsByCurrency[currency].monthly += monthlyAmount;
+      totalsByCurrency[currency].annual += monthlyAmount * 12;
+    });
     
-    return totals;
+    return totalsByCurrency;
   };
 
-  const { monthly, annual } = calculateTotals();
+  // Format currency display
+  const formatCurrencyDisplay = (totals: Record<string, { monthly: number; annual: number }>) => {
+    const currencies = Object.keys(totals);
+    if (currencies.length === 0) return { monthly: '$0.00 USD', annual: '$0.00 USD' };
+    if (currencies.length === 1) {
+      const currency = currencies[0];
+      return {
+        monthly: `$${totals[currency].monthly.toFixed(2)} ${currency}`,
+        annual: `$${totals[currency].annual.toFixed(2)} ${currency}`
+      };
+    }
+    
+    // Multiple currencies - show each one
+    const monthlyStr = currencies.map(curr => `$${totals[curr].monthly.toFixed(2)} ${curr}`).join(' + ');
+    const annualStr = currencies.map(curr => `$${totals[curr].annual.toFixed(2)} ${curr}`).join(' + ');
+    
+    return { monthly: monthlyStr, annual: annualStr };
+  };
+
+  const totalsByCurrency = calculateTotalsByCurrency();
+  const { monthly: monthlyDisplay, annual: annualDisplay } = formatCurrencyDisplay(totalsByCurrency);
 
   // Get upcoming renewals (next 30 days)
   const getUpcomingRenewals = () => {
@@ -107,7 +133,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">$0.00</div>
-              <p className="text-xs text-muted-foreground">USD por mes</p>
+              <p className="text-xs text-muted-foreground">por mes</p>
             </CardContent>
           </Card>
 
@@ -118,7 +144,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">$0.00</div>
-              <p className="text-xs text-muted-foreground">USD por año</p>
+              <p className="text-xs text-muted-foreground">por año</p>
             </CardContent>
           </Card>
 
@@ -162,8 +188,8 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${monthly.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">USD por mes</p>
+            <div className="text-2xl font-bold">{monthlyDisplay}</div>
+            <p className="text-xs text-muted-foreground">por mes</p>
           </CardContent>
         </Card>
 
@@ -173,8 +199,8 @@ const Dashboard = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${annual.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">USD por año</p>
+            <div className="text-2xl font-bold">{annualDisplay}</div>
+            <p className="text-xs text-muted-foreground">por año</p>
           </CardContent>
         </Card>
 
@@ -209,7 +235,7 @@ const Dashboard = () => {
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline">${subscription.cost}</Badge>
+                <Badge variant="outline">${subscription.cost} {subscription.currency}</Badge>
               </div>
             ))
           ) : (

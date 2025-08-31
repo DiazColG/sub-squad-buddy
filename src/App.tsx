@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Subscriptions from "./pages/Subscriptions";
+import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
@@ -36,6 +37,13 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <Subscriptions />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <Layout>
+                <Analytics />
               </Layout>
             </ProtectedRoute>
           } />

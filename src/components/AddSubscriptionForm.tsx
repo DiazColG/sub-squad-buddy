@@ -26,7 +26,11 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     billing_cycle: "",
     category: "",
     enable_renewal_alert: false,
-    alert_days_before: 7
+    alert_days_before: 7,
+    payment_method: "",
+    bank_name: "",
+    card_type: "",
+    card_last_digits: ""
   });
   const [renewalDate, setRenewalDate] = useState<Date>();
 
@@ -54,6 +58,35 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     { value: 1, label: "1 día antes" },
     { value: 3, label: "3 días antes" },
     { value: 7, label: "7 días antes" }
+  ];
+
+  const paymentMethods = [
+    { value: "debit_auto", label: "Débito Automático" },
+    { value: "credit_card", label: "Tarjeta de Crédito" },
+    { value: "debit_card", label: "Tarjeta de Débito" },
+    { value: "transfer", label: "Transferencia" },
+    { value: "other", label: "Otro" }
+  ];
+
+  const argentineBanks = [
+    "Banco Nación",
+    "Banco Provincia",
+    "Banco Ciudad",
+    "Banco Santander",
+    "Banco Macro",
+    "BBVA",
+    "Banco Galicia",
+    "Banco Patagonia",
+    "Banco Supervielle",
+    "Banco Comafi",
+    "Otro"
+  ];
+
+  const cardTypes = [
+    { value: "visa", label: "Visa" },
+    { value: "mastercard", label: "MasterCard" },
+    { value: "amex", label: "American Express" },
+    { value: "other", label: "Otro" }
   ];
 
   const handleInputChange = (field: string, value: any) => {
@@ -84,7 +117,11 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       billing_cycle: "",
       category: "",
       enable_renewal_alert: false,
-      alert_days_before: 7
+      alert_days_before: 7,
+      payment_method: "",
+      bank_name: "",
+      card_type: "",
+      card_last_digits: ""
     });
     setRenewalDate(undefined);
   };
@@ -197,6 +234,81 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          {/* Payment Method Section */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-lg font-medium">Método de Pago</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="payment_method">Método de Pago</Label>
+              <Select value={formData.payment_method} onValueChange={(value) => handleInputChange("payment_method", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un método de pago" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg">
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>
+                      {method.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Débito Automático - Bank Selection */}
+            {formData.payment_method === "debit_auto" && (
+              <div className="space-y-2">
+                <Label htmlFor="bank_name">Banco</Label>
+                <Select value={formData.bank_name} onValueChange={(value) => handleInputChange("bank_name", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona tu banco" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    {argentineBanks.map((bank) => (
+                      <SelectItem key={bank} value={bank}>
+                        {bank}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Tarjetas - Card Type and Last 4 Digits */}
+            {(formData.payment_method === "credit_card" || formData.payment_method === "debit_card") && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="card_type">Tipo de Tarjeta</Label>
+                  <Select value={formData.card_type} onValueChange={(value) => handleInputChange("card_type", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el tipo" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg">
+                      {cardTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="card_last_digits">Últimos 4 Dígitos</Label>
+                  <Input
+                    id="card_last_digits"
+                    placeholder="1234"
+                    maxLength={4}
+                    value={formData.card_last_digits}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      handleInputChange("card_last_digits", value);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notification Settings */}

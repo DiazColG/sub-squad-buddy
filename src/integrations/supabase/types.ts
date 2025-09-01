@@ -41,7 +41,10 @@ export type Database = {
       subscriptions: {
         Row: {
           alert_days_before: number | null
+          bank_name: string | null
           billing_cycle: string | null
+          card_last_digits: string | null
+          card_type: string | null
           category: string | null
           cost: number | null
           created_at: string
@@ -49,13 +52,17 @@ export type Database = {
           enable_renewal_alert: boolean | null
           id: string
           next_renewal_date: string | null
+          payment_method: string | null
           service_name: string | null
           team_id: string | null
           user_id: string | null
         }
         Insert: {
           alert_days_before?: number | null
+          bank_name?: string | null
           billing_cycle?: string | null
+          card_last_digits?: string | null
+          card_type?: string | null
           category?: string | null
           cost?: number | null
           created_at?: string
@@ -63,13 +70,17 @@ export type Database = {
           enable_renewal_alert?: boolean | null
           id?: string
           next_renewal_date?: string | null
+          payment_method?: string | null
           service_name?: string | null
           team_id?: string | null
           user_id?: string | null
         }
         Update: {
           alert_days_before?: number | null
+          bank_name?: string | null
           billing_cycle?: string | null
+          card_last_digits?: string | null
+          card_type?: string | null
           category?: string | null
           cost?: number | null
           created_at?: string
@@ -77,6 +88,7 @@ export type Database = {
           enable_renewal_alert?: boolean | null
           id?: string
           next_renewal_date?: string | null
+          payment_method?: string | null
           service_name?: string | null
           team_id?: string | null
           user_id?: string | null

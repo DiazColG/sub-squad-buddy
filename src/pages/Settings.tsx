@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,20 +8,38 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
-import { User, Globe, Bell, Shield, CreditCard } from "lucide-react";
+import { User, Globe, Bell, Shield, CreditCard, RefreshCw } from "lucide-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
 
 const Settings = () => {
+  const { user } = useAuth();
+  const { profile, loading: profileLoading, updateProfile, updateCurrency } = useUserProfile();
+  const { subscriptions } = useSubscriptions();
+  const { refreshRates, lastUpdated, loading: ratesLoading } = useCurrencyExchange();
+  
   const [userSettings, setUserSettings] = useState({
-    fullName: "Juan Pérez",
-    email: "juan@ejemplo.com",
-    primaryCurrency: "USD",
-    accountType: "team" as "personal" | "team",
+    fullName: "",
+    email: "",
     notifications: {
       emailAlerts: true,
       renewalReminders: true,
       weeklyReports: false
     }
   });
+
+  // Update local state when profile loads
+  useEffect(() => {
+    if (profile && user) {
+      setUserSettings(prev => ({
+        ...prev,
+        fullName: profile.full_name || "",
+        email: user.email || ""
+      }));
+    }
+  }, [profile, user]);
 
   const currencies = [
     { code: "USD", name: "Dólar Estadounidense", symbol: "$" },
@@ -34,9 +52,16 @@ const Settings = () => {
     { code: "BRL", name: "Real Brasileño", symbol: "R$" },
   ];
 
-  const handleSaveProfile = () => {
-    // TODO: Implement save logic
-    console.log("Saving profile:", userSettings);
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    
+    await updateProfile({
+      full_name: userSettings.fullName
+    });
+  };
+
+  const handleCurrencyChange = async (currency: string) => {
+    await updateCurrency(currency);
   };
 
   const handleNotificationChange = (key: string, value: boolean) => {
@@ -79,6 +104,7 @@ const Settings = () => {
                       id="fullName"
                       value={userSettings.fullName}
                       onChange={(e) => setUserSettings(prev => ({ ...prev, fullName: e.target.value }))}
+                      disabled={profileLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -87,12 +113,16 @@ const Settings = () => {
                       id="email"
                       type="email"
                       value={userSettings.email}
-                      onChange={(e) => setUserSettings(prev => ({ ...prev, email: e.target.value }))}
+                      disabled
+                      className="bg-muted"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      El email no se puede cambiar desde aquí
+                    </p>
                   </div>
                 </div>
-                <Button onClick={handleSaveProfile}>
-                  Guardar cambios
+                <Button onClick={handleSaveProfile} disabled={profileLoading}>
+                  {profileLoading ? 'Guardando...' : 'Guardar cambios'}
                 </Button>
               </CardContent>
             </Card>
@@ -110,10 +140,23 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Moneda principal</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="currency">Moneda principal</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshRates}
+                      disabled={ratesLoading}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${ratesLoading ? 'animate-spin' : ''}`} />
+                      Actualizar
+                    </Button>
+                  </div>
                   <Select 
-                    value={userSettings.primaryCurrency} 
-                    onValueChange={(value) => setUserSettings(prev => ({ ...prev, primaryCurrency: value }))}
+                    value={profile?.primary_display_currency || "USD"} 
+                    onValueChange={handleCurrencyChange}
+                    disabled={profileLoading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona una moneda" />
@@ -129,9 +172,12 @@ const Settings = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Todas las suscripciones se convertirán a esta moneda en el dashboard
-                  </p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Todas las suscripciones se convertirán a esta moneda en el dashboard</p>
+                    {lastUpdated && (
+                      <p>Tipos de cambio actualizados: {lastUpdated.toLocaleTimeString('es-ES')}</p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -203,10 +249,10 @@ const Settings = () => {
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">Tipo de cuenta</div>
                   <Badge 
-                    variant={userSettings.accountType === "team" ? "default" : "secondary"}
+                    variant={profile?.account_type === "team" ? "default" : "secondary"}
                     className="w-fit"
                   >
-                    {userSettings.accountType === "team" ? "Cuenta de Equipo" : "Cuenta Personal"}
+                    {profile?.account_type === "team" ? "Cuenta de Equipo" : "Cuenta Personal"}
                   </Badge>
                 </div>
                 <Separator />
@@ -217,7 +263,7 @@ const Settings = () => {
                 <Separator />
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">Suscripciones activas</div>
-                  <div className="font-medium">8 servicios</div>
+                  <div className="font-medium">{subscriptions.length} servicios</div>
                 </div>
               </CardContent>
             </Card>

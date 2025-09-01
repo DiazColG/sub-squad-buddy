@@ -5,22 +5,29 @@ import { Calendar, DollarSign, TrendingUp, Plus, Package } from "lucide-react";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 
 const Dashboard = () => {
   const { subscriptions, loading } = useSubscriptions();
   const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const { convertCurrency, formatCurrency, loading: ratesLoading } = useCurrencyExchange();
 
-  // Calculate totals from actual subscriptions grouped by currency
-  const calculateTotalsByCurrency = () => {
-    if (!subscriptions.length) return {};
-    
-    const totalsByCurrency: Record<string, { monthly: number; annual: number }> = {};
-    
+  // Calculate totals converting all to user's preferred currency
+  const calculateConvertedTotals = () => {
+    if (!subscriptions.length || !profile?.primary_display_currency) {
+      return { monthly: 0, annual: 0 };
+    }
+
+    const targetCurrency = profile.primary_display_currency;
+    let totalMonthly = 0;
+
     subscriptions.forEach(sub => {
-      const currency = sub.currency || 'USD';
       const cost = sub.cost || 0;
-      let monthlyAmount = 0;
+      const sourceCurrency = sub.currency || 'USD';
       
+      let monthlyAmount = 0;
       switch (sub.billing_cycle) {
         case 'Monthly':
           monthlyAmount = cost;
@@ -37,39 +44,23 @@ const Dashboard = () => {
         default:
           monthlyAmount = cost;
       }
-      
-      if (!totalsByCurrency[currency]) {
-        totalsByCurrency[currency] = { monthly: 0, annual: 0 };
-      }
-      
-      totalsByCurrency[currency].monthly += monthlyAmount;
-      totalsByCurrency[currency].annual += monthlyAmount * 12;
+
+      // Convert to user's preferred currency
+      const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, targetCurrency);
+      totalMonthly += convertedAmount;
     });
-    
-    return totalsByCurrency;
+
+    return {
+      monthly: totalMonthly,
+      annual: totalMonthly * 12
+    };
   };
 
-  // Format currency display
-  const formatCurrencyDisplay = (totals: Record<string, { monthly: number; annual: number }>) => {
-    const currencies = Object.keys(totals);
-    if (currencies.length === 0) return { monthly: '$0.00 USD', annual: '$0.00 USD' };
-    if (currencies.length === 1) {
-      const currency = currencies[0];
-      return {
-        monthly: `$${totals[currency].monthly.toFixed(2)} ${currency}`,
-        annual: `$${totals[currency].annual.toFixed(2)} ${currency}`
-      };
-    }
-    
-    // Multiple currencies - show each one
-    const monthlyStr = currencies.map(curr => `$${totals[curr].monthly.toFixed(2)} ${curr}`).join(' + ');
-    const annualStr = currencies.map(curr => `$${totals[curr].annual.toFixed(2)} ${curr}`).join(' + ');
-    
-    return { monthly: monthlyStr, annual: annualStr };
-  };
-
-  const totalsByCurrency = calculateTotalsByCurrency();
-  const { monthly: monthlyDisplay, annual: annualDisplay } = formatCurrencyDisplay(totalsByCurrency);
+  const { monthly: totalMonthly, annual: totalAnnual } = calculateConvertedTotals();
+  const userCurrency = profile?.primary_display_currency || 'USD';
+  
+  const monthlyDisplay = formatCurrency(totalMonthly, userCurrency);
+  const annualDisplay = formatCurrency(totalAnnual, userCurrency);
 
   // Get upcoming renewals (next 30 days)
   const getUpcomingRenewals = () => {
@@ -85,7 +76,7 @@ const Dashboard = () => {
 
   const upcomingRenewals = getUpcomingRenewals();
 
-  if (loading) {
+  if (loading || ratesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -235,7 +226,12 @@ const Dashboard = () => {
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline">${subscription.cost} {subscription.currency}</Badge>
+                <Badge variant="outline">
+                  {formatCurrency(
+                    convertCurrency(subscription.cost || 0, subscription.currency || 'USD', userCurrency),
+                    userCurrency
+                  )}
+                </Badge>
               </div>
             ))
           ) : (

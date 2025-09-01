@@ -25,11 +25,15 @@ import { Layout } from "@/components/Layout";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import AddSubscriptionForm from "@/components/AddSubscriptionForm";
 import { toast } from "sonner";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 
 const Subscriptions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { subscriptions, loading, addSubscription, deleteSubscription } = useSubscriptions();
+  const { profile } = useUserProfile();
+  const { convertCurrency, formatCurrency } = useCurrencyExchange();
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -173,10 +177,15 @@ const Subscriptions = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-lg font-semibold text-foreground">
-                        ${subscription.cost.toFixed(2)}
+                        ${subscription.cost?.toFixed(2)} {subscription.currency}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {subscription.currency}
+                        {profile?.primary_display_currency !== subscription.currency && (
+                          formatCurrency(
+                            convertCurrency(subscription.cost || 0, subscription.currency || 'USD', profile?.primary_display_currency || 'USD'),
+                            profile?.primary_display_currency || 'USD'
+                          )
+                        )}
                       </div>
                     </div>
                   </div>

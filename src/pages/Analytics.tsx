@@ -5,9 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter } from 'lucide-react';
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 
 const Analytics = () => {
   const { subscriptions, loading } = useSubscriptions();
+  const { profile } = useUserProfile();
+  const { convertCurrency, formatCurrency, loading: ratesLoading } = useCurrencyExchange();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Get unique categories
@@ -22,13 +26,17 @@ const Analytics = () => {
     return subscriptions.filter(sub => sub.category === selectedCategory);
   }, [subscriptions, selectedCategory]);
 
-  // Prepare data for pie chart (spending by category)
+  // Prepare data for pie chart (spending by category) - converted to user's currency
   const pieChartData = useMemo(() => {
+    if (!profile?.primary_display_currency) return [];
+    
     const categoryTotals: Record<string, number> = {};
+    const userCurrency = profile.primary_display_currency;
     
     filteredSubscriptions.forEach(sub => {
       const category = sub.category || 'Sin categoría';
       const cost = sub.cost || 0;
+      const sourceCurrency = sub.currency || 'USD';
       
       // Convert to monthly cost
       let monthlyAmount = 0;
@@ -49,7 +57,9 @@ const Analytics = () => {
           monthlyAmount = cost;
       }
       
-      categoryTotals[category] = (categoryTotals[category] || 0) + monthlyAmount;
+      // Convert to user's preferred currency
+      const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, userCurrency);
+      categoryTotals[category] = (categoryTotals[category] || 0) + convertedAmount;
     });
 
     return Object.entries(categoryTotals).map(([category, value]) => ({
@@ -57,7 +67,7 @@ const Analytics = () => {
       value: parseFloat(value.toFixed(2)),
       count: filteredSubscriptions.filter(sub => (sub.category || 'Sin categoría') === category).length
     }));
-  }, [filteredSubscriptions]);
+  }, [filteredSubscriptions, convertCurrency, profile?.primary_display_currency]);
 
   // Prepare data for stacked bar chart (spending by billing cycle and category)
   const barChartData = useMemo(() => {
@@ -112,12 +122,17 @@ const Analytics = () => {
   // Colors for pie chart
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-  // Calculate total spending
+  // Calculate total spending (monthly equivalent) - converted to user's currency
   const totalSpending = useMemo(() => {
+    if (!profile?.primary_display_currency) return 0;
+    
+    const userCurrency = profile.primary_display_currency;
+    
     return filteredSubscriptions.reduce((total, sub) => {
       const cost = sub.cost || 0;
-      let monthlyAmount = 0;
+      const sourceCurrency = sub.currency || 'USD';
       
+      let monthlyAmount = 0;
       switch (sub.billing_cycle) {
         case 'Monthly':
           monthlyAmount = cost;
@@ -135,11 +150,13 @@ const Analytics = () => {
           monthlyAmount = cost;
       }
       
-      return total + monthlyAmount;
+      // Convert to user's preferred currency
+      const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, userCurrency);
+      return total + convertedAmount;
     }, 0);
-  }, [filteredSubscriptions]);
+  }, [filteredSubscriptions, convertCurrency, profile?.primary_display_currency]);
 
-  if (loading) {
+  if (loading || ratesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -191,7 +208,7 @@ const Analytics = () => {
               {filteredSubscriptions.length} suscripciones
             </Badge>
             <Badge variant="outline">
-              ${totalSpending.toFixed(2)} gasto mensual
+              {formatCurrency(totalSpending, profile?.primary_display_currency || 'USD')} gasto mensual
             </Badge>
           </div>
         </CardContent>

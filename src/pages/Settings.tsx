@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { User, Globe, Bell, Shield, CreditCard, RefreshCw } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -234,6 +235,9 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Feedback Form */}
+            <FeedbackForm />
           </div>
 
           {/* Account Info Sidebar */}

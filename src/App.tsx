@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Subscriptions from "./pages/Subscriptions";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
+import Feedback from "./pages/Feedback";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
@@ -52,6 +53,13 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <Notifications />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/feedback" element={
+            <ProtectedRoute>
+              <Layout>
+                <Feedback />
               </Layout>
             </ProtectedRoute>
           } />

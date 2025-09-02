@@ -4,7 +4,8 @@ import {
   Users, 
   Settings, 
   BarChart3,
-  Bell
+  Bell,
+  MessageSquare
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -25,6 +26,7 @@ const mainNavItems = [
   { title: "Suscripciones", url: "/subscriptions", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },
+  { title: "Feedback", url: "/feedback", icon: MessageSquare },
 ];
 
 const teamNavItems = [

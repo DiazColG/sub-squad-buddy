@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { formatNumber, formatPercentage } from "@/lib/formatNumber";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,7 @@ const Analytics = () => {
 
     return Object.entries(categoryTotals).map(([category, value]) => ({
       name: category,
-      value: parseFloat(value.toFixed(2)),
+      value: value >= 1000 ? Math.round(value) : parseFloat(value.toFixed(2)),
       count: filteredSubscriptions.filter(sub => (sub.category || 'Sin categoría') === category).length
     }));
   }, [filteredSubscriptions, convertCurrency, profile?.primary_display_currency]);
@@ -112,7 +113,7 @@ const Analytics = () => {
         }, 0);
 
         if (total > 0) hasData = true;
-        cycleData[category] = parseFloat(total.toFixed(2));
+        cycleData[category] = total >= 1000 ? Math.round(total) : parseFloat(total.toFixed(2));
       });
 
       return hasData ? cycleData : null;
@@ -246,7 +247,7 @@ const Analytics = () => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${formatPercentage(percent)}`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"

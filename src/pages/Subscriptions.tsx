@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatNumber } from "@/lib/formatNumber";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,7 +177,7 @@ const Subscriptions = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-lg font-semibold text-foreground">
-                        ${subscription.cost?.toFixed(2)} {subscription.currency}
+                        ${formatNumber(subscription.cost || 0)} {subscription.currency}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {profile?.primary_display_currency !== subscription.currency && (

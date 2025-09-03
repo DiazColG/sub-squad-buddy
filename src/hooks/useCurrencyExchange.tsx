@@ -96,10 +96,18 @@ export const useCurrencyExchange = () => {
     };
 
     const symbol = currencySymbols[currency] || currency;
-    const formatted = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    
+    // For numbers >= 1000: no decimals, use "." as thousands separator
+    // For numbers < 1000: show decimals if necessary
+    const formatted = amount >= 1000 
+      ? new Intl.NumberFormat('es-ES', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(Math.round(amount))
+      : new Intl.NumberFormat('es-ES', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(amount);
 
     return `${symbol}${formatted} ${currency}`;
   };

@@ -5,7 +5,8 @@ import {
   Settings, 
   BarChart3,
   Bell,
-  MessageSquare
+  MessageSquare,
+  Package
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -22,8 +23,9 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Suscripciones", url: "/subscriptions", icon: CreditCard },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Suscripciones", url: "/subscriptions", icon: Package },
+  { title: "Tarjetas", url: "/cards", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },
   { title: "Feedback", url: "/feedback", icon: MessageSquare },

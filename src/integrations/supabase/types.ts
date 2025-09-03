@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      cards: {
+        Row: {
+          alert_days_before: number | null
+          bank_name: string
+          card_brand: string | null
+          card_last_digits: string
+          card_type: string
+          cardholder_name: string | null
+          created_at: string
+          enable_expiry_alert: boolean | null
+          expiry_date: string
+          id: string
+          is_active: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_days_before?: number | null
+          bank_name: string
+          card_brand?: string | null
+          card_last_digits: string
+          card_type: string
+          cardholder_name?: string | null
+          created_at?: string
+          enable_expiry_alert?: boolean | null
+          expiry_date: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_days_before?: number | null
+          bank_name?: string
+          card_brand?: string | null
+          card_last_digits?: string
+          card_type?: string
+          cardholder_name?: string | null
+          created_at?: string
+          enable_expiry_alert?: boolean | null
+          expiry_date?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string
@@ -79,6 +127,7 @@ export type Database = {
           alert_days_before: number | null
           bank_name: string | null
           billing_cycle: string | null
+          card_id: string | null
           card_last_digits: string | null
           card_type: string | null
           category: string | null
@@ -97,6 +146,7 @@ export type Database = {
           alert_days_before?: number | null
           bank_name?: string | null
           billing_cycle?: string | null
+          card_id?: string | null
           card_last_digits?: string | null
           card_type?: string | null
           category?: string | null
@@ -115,6 +165,7 @@ export type Database = {
           alert_days_before?: number | null
           bank_name?: string | null
           billing_cycle?: string | null
+          card_id?: string | null
           card_last_digits?: string | null
           card_type?: string | null
           category?: string | null
@@ -129,7 +180,15 @@ export type Database = {
           team_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_members: {
         Row: {

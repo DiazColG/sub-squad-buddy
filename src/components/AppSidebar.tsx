@@ -31,8 +31,8 @@ const mainNavItems = [
   { title: "Feedback", url: "/feedback", icon: MessageSquare },
 ];
 
-const teamNavItems = [
-  { title: "Equipo", url: "/team", icon: Users },
+const shareNavItems = [
+  { title: "Compartir", url: "/share", icon: Users },
 ];
 
 const settingsNavItems = [
@@ -52,7 +52,7 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
 
   // Mock user data - will be replaced with real auth data
-  const isTeamAccount = true; // This should come from user context
+  const hasSharing = true; // This should come from user context
 
   return (
     <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon">
@@ -97,13 +97,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Team Navigation (only for team accounts) */}
-        {isTeamAccount && (
+        {/* Share Navigation */}
+        {hasSharing && (
           <SidebarGroup>
-            <SidebarGroupLabel>Colaboración</SidebarGroupLabel>
+            <SidebarGroupLabel>Compartir</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {teamNavItems.map((item) => (
+                {shareNavItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink 

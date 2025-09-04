@@ -13,6 +13,7 @@ import Notifications from "./pages/Notifications";
 import Feedback from "./pages/Feedback";
 import Settings from "./pages/Settings";
 import Cards from "./pages/Cards";
+import Share from "./pages/Share";
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -75,6 +76,13 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <Cards />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/share" element={
+            <ProtectedRoute>
+              <Layout>
+                <Share />
               </Layout>
             </ProtectedRoute>
           } />

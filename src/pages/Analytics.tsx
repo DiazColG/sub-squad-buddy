@@ -171,7 +171,7 @@ const Analytics = () => {
         <div>
           <h1 className="text-3xl font-bold">Análisis</h1>
           <p className="text-muted-foreground">
-            Analiza tus gastos por categoría y ciclo de facturación
+            Analiza tus gastos personales y compartidos por categoría
           </p>
         </div>
       </div>

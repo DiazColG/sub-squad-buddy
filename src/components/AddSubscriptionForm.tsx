@@ -131,7 +131,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       <CardHeader>
         <CardTitle>Agregar Nueva Suscripción</CardTitle>
         <CardDescription>
-          Completa la información de tu suscripción para comenzar a rastrearla
+          Completa la información. Las suscripciones son personales por defecto, puedes compartirlas después.
         </CardDescription>
       </CardHeader>
       <CardContent>

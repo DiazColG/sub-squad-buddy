@@ -96,7 +96,7 @@ const Cards = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Tarjetas</h1>
-          <p className="text-muted-foreground">Gestiona tus tarjetas de crédito y débito</p>
+          <p className="text-muted-foreground">Gestiona las tarjetas que usas para tus suscripciones</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -149,6 +149,9 @@ const Cards = () => {
                       <CardTitle className="text-lg font-semibold flex items-center gap-2">
                         <CreditCard className="h-5 w-5" />
                         •••• {card.card_last_digits}
+                        <Badge variant="outline" className="text-xs">
+                          Personal
+                        </Badge>
                       </CardTitle>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge className={getCardTypeColor(card.card_type)}>
@@ -177,6 +180,10 @@ const Cards = () => {
                         <DropdownMenuItem>
                           <Pencil className="h-4 w-4 mr-2" />
                           Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Compartir
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive"

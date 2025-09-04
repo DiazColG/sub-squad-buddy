@@ -84,7 +84,7 @@ const Subscriptions = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Suscripciones</h1>
-            <p className="text-muted-foreground">Gestiona todas tus suscripciones activas</p>
+            <p className="text-muted-foreground">Gestiona tus suscripciones personales y las que compartes</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -135,8 +135,11 @@ const Subscriptions = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold truncate">
+                      <CardTitle className="text-lg font-semibold truncate flex items-center gap-2">
                         {subscription.service_name}
+                        <Badge variant="outline" className="text-xs">
+                          Personal
+                        </Badge>
                       </CardTitle>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge className={getCategoryColor(subscription.category)}>
@@ -157,6 +160,10 @@ const Subscriptions = () => {
                         <DropdownMenuItem>
                           <Pencil className="h-4 w-4 mr-2" />
                           Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Compartir
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive"

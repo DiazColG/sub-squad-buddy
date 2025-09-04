@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Mail, Lock, Eye, EyeOff, User, Building, UserCheck } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, UserCheck, Shield, CheckCircle2, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
 const Signup = () => {
@@ -13,8 +13,8 @@ const Signup = () => {
   const { signUp, user, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [accountType, setAccountType] = useState("personal");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] });
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -28,21 +28,58 @@ const Signup = () => {
     }
   }, [user, loading, navigate]);
 
+  const validatePasswordStrength = (password: string) => {
+    const feedback = [];
+    let score = 0;
+
+    if (password.length >= 8) score += 1;
+    else feedback.push("Mínimo 8 caracteres");
+
+    if (/[A-Z]/.test(password)) score += 1;
+    else feedback.push("Al menos 1 mayúscula");
+
+    if (/[a-z]/.test(password)) score += 1;
+    else feedback.push("Al menos 1 minúscula");
+
+    if (/\d/.test(password)) score += 1;
+    else feedback.push("Al menos 1 número");
+
+    if (/[!@#$%^&*]/.test(password)) score += 1;
+    else feedback.push("Al menos 1 símbolo");
+
+    return { score, feedback };
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    if (field === 'password') {
+      setPasswordStrength(validatePasswordStrength(value));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation
     if (formData.password !== formData.confirmPassword) {
-      alert('Las contraseñas no coinciden');
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (passwordStrength.score < 3) {
+      toast.error('La contraseña debe ser más fuerte');
+      return;
+    }
+
+    if (!formData.fullName.trim()) {
+      toast.error('El nombre completo es requerido');
       return;
     }
     
     setIsSubmitting(true);
     
-    const { error } = await signUp(formData.email, formData.password, formData.fullName, accountType as 'personal' | 'team');
+    const { error } = await signUp(formData.email, formData.password, formData.fullName, 'personal');
     
     setIsSubmitting(false);
   };
@@ -69,30 +106,6 @@ const Signup = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Account Type Selection */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Tipo de cuenta</Label>
-                <RadioGroup 
-                  value={accountType} 
-                  onValueChange={setAccountType}
-                  className="grid grid-cols-2 gap-4"
-                >
-                  <div className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-background-subtle transition-colors">
-                    <RadioGroupItem value="personal" id="personal" />
-                    <Label htmlFor="personal" className="flex items-center gap-2 cursor-pointer">
-                      <User className="h-4 w-4 text-primary" />
-                      <span className="text-sm">Personal</span>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-background-subtle transition-colors">
-                    <RadioGroupItem value="team" id="team" />
-                    <Label htmlFor="team" className="flex items-center gap-2 cursor-pointer">
-                      <Building className="h-4 w-4 text-primary" />
-                      <span className="text-sm">Equipo</span>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nombre completo</Label>
@@ -147,6 +160,32 @@ const Signup = () => {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                
+                {/* Password Strength Indicator */}
+                {formData.password && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-muted rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            passwordStrength.score <= 2 ? 'bg-destructive' :
+                            passwordStrength.score <= 3 ? 'bg-warning' : 'bg-success'
+                          }`}
+                          style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {passwordStrength.score <= 2 ? 'Débil' :
+                         passwordStrength.score <= 3 ? 'Media' : 'Fuerte'}
+                      </span>
+                    </div>
+                    {passwordStrength.feedback.length > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        {passwordStrength.feedback.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

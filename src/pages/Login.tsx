@@ -4,15 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Mail, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import PasswordInput from "@/components/PasswordInput";
+import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
   const { signIn, user, loading } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -23,11 +26,20 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
+    
     setIsSubmitting(true);
     
     const { error } = await signIn(email, password);
     
     if (!error) {
+      if (rememberMe) {
+        localStorage.setItem('suscrify_remember_email', email);
+      }
       navigate('/dashboard');
     }
     
@@ -76,23 +88,25 @@ const Login = () => {
                 <Label htmlFor="password">Contraseña</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
+                    onChange={setPassword}
+                    className="pl-10"
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label htmlFor="remember" className="text-sm">
+                  Recordar mi email
+                </Label>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>

@@ -70,16 +70,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Basic input validation
+      if (!email || !password) {
+        toast.error('Email y contraseña son requeridos');
+        return { error: new Error('Missing credentials') };
+      }
+
+      // Email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast.error('Formato de email inválido');
+        return { error: new Error('Invalid email format') };
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.toLowerCase().trim(),
         password,
       });
 
       if (error) {
+        // Handle specific Supabase errors
         if (error.message === 'Invalid login credentials') {
-          toast.error('Credenciales incorrectas');
+          toast.error('Email o contraseña incorrectos');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Por favor confirma tu email antes de iniciar sesión');
+        } else if (error.message.includes('Too many requests')) {
+          toast.error('Demasiados intentos. Intenta más tarde');
         } else {
-          toast.error(error.message);
+          toast.error('Error al iniciar sesión');
         }
         return { error };
       }
@@ -87,7 +105,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       toast.success('¡Bienvenido de vuelta!');
       return { error: null };
     } catch (error: any) {
-      toast.error('Error al iniciar sesión');
+      toast.error('Error de conexión. Verifica tu internet');
       return { error };
     }
   };

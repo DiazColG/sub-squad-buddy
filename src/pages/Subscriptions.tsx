@@ -14,17 +14,22 @@ import {
   Trash2,
   Calendar,
   DollarSign,
-  Loader2
+  Loader2,
+  PauseCircle,
+  Share,
+  Settings
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Layout } from "@/components/Layout";
-import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { useSubscriptions, Subscription } from "@/hooks/useSubscriptions";
 import AddSubscriptionForm from "@/components/AddSubscriptionForm";
+import EditSubscriptionForm from "@/components/EditSubscriptionForm";
 import { toast } from "sonner";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
@@ -32,7 +37,9 @@ import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 const Subscriptions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { subscriptions, loading, addSubscription, deleteSubscription } = useSubscriptions();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const { subscriptions, loading, addSubscription, updateSubscription, deleteSubscription } = useSubscriptions();
   const { profile } = useUserProfile();
   const { convertCurrency, formatCurrency } = useCurrencyExchange();
 
@@ -76,6 +83,26 @@ const Subscriptions = () => {
     } catch (error) {
       console.error('Error deleting subscription:', error);
     }
+  };
+
+  const handleUpdateSubscription = async (id: string, data: Partial<Subscription>) => {
+    try {
+      await updateSubscription(id, data);
+      setIsEditDialogOpen(false);
+      setEditingSubscription(null);
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+    }
+  };
+
+  const openEditDialog = (subscription: Subscription) => {
+    setEditingSubscription(subscription);
+    setIsEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setIsEditDialogOpen(false);
+    setEditingSubscription(null);
   };
 
   return (
@@ -156,15 +183,25 @@ const Subscriptions = () => {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                      <DropdownMenuContent align="end" className="bg-background border shadow-lg">
+                        <DropdownMenuItem onClick={() => openEditDialog(subscription)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                          <Pencil className="h-4 w-4 mr-2" />
+                          <Settings className="h-4 w-4 mr-2" />
+                          Configurar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>
+                          <Share className="h-4 w-4 mr-2" />
                           Compartir
                         </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <PauseCircle className="h-4 w-4 mr-2" />
+                          Pausar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           className="text-destructive"
                           onClick={() => handleDeleteSubscription(subscription.id)}
@@ -237,6 +274,24 @@ const Subscriptions = () => {
             )}
           </div>
         )}
+
+        {/* Edit Subscription Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Suscripción</DialogTitle>
+            </DialogHeader>
+            {editingSubscription && (
+              <EditSubscriptionForm
+                subscription={editingSubscription}
+                onUpdate={handleUpdateSubscription}
+                onDelete={handleDeleteSubscription}
+                onClose={closeEditDialog}
+                loading={loading}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
     </div>
   );
 };

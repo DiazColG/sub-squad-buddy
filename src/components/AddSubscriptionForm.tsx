@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCards } from "@/hooks/useCards";
 
 interface AddSubscriptionFormProps {
   onSubmit: (data: any) => Promise<void>;
@@ -19,6 +21,7 @@ interface AddSubscriptionFormProps {
 }
 
 const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormProps) => {
+  const { cards } = useCards();
   const [formData, setFormData] = useState({
     service_name: "",
     cost: "",
@@ -30,7 +33,8 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     payment_method: "",
     bank_name: "",
     card_type: "",
-    card_last_digits: ""
+    card_last_digits: "",
+    card_id: ""
   });
   const [renewalDate, setRenewalDate] = useState<Date>();
 
@@ -93,6 +97,24 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleCardSelection = (cardId: string) => {
+    const selectedCard = cards.find(card => card.id === cardId);
+    if (selectedCard) {
+      setFormData(prev => ({
+        ...prev,
+        card_id: cardId,
+        payment_method: selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card',
+        card_type: selectedCard.card_brand || 'other',
+        card_last_digits: selectedCard.card_last_digits,
+        bank_name: selectedCard.bank_name
+      }));
+    }
+  };
+
+  const getCardDisplayName = (card: any) => {
+    return `**** ${card.card_last_digits} - ${card.bank_name} (${card.card_type === 'credit' ? 'Crédito' : 'Débito'})`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -121,7 +143,8 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       payment_method: "",
       bank_name: "",
       card_type: "",
-      card_last_digits: ""
+      card_last_digits: "",
+      card_id: ""
     });
     setRenewalDate(undefined);
   };
@@ -230,6 +253,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                     selected={renewalDate}
                     onSelect={setRenewalDate}
                     initialFocus
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -238,7 +262,33 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
 
           {/* Payment Method Section */}
           <div className="space-y-4 border-t pt-4">
-            <h3 className="text-lg font-medium">Método de Pago</h3>
+            <h3 className="text-lg font-medium flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Método de Pago
+            </h3>
+            
+            {/* Selección de tarjeta guardada */}
+            {cards.length > 0 && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="saved_card">Usar Tarjeta Guardada</Label>
+                  <Select value={formData.card_id} onValueChange={handleCardSelection}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una tarjeta guardada" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg">
+                      <SelectItem value="">Ingresar manualmente</SelectItem>
+                      {cards.filter(card => card.is_active).map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {getCardDisplayName(card)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+              </>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="payment_method">Método de Pago</Label>

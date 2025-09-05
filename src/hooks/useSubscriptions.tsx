@@ -16,6 +16,11 @@ export interface Subscription {
   user_id: string;
   team_id?: string;
   created_at: string;
+  payment_method?: string;
+  bank_name?: string;
+  card_type?: string;
+  card_last_digits?: string;
+  card_id?: string;
 }
 
 export const useSubscriptions = () => {

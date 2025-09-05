@@ -8,7 +8,7 @@ import {
   MessageSquare,
   Package
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import {
   Sidebar,
@@ -42,6 +42,7 @@ const settingsNavItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -60,7 +61,10 @@ export function AppSidebar() {
         {/* Brand */}
         <div className="p-4 border-b">
           {!isCollapsed ? (
-            <div className="flex items-center gap-2">
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate('/dashboard')}
+            >
               <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">S</span>
               </div>
@@ -69,7 +73,10 @@ export function AppSidebar() {
               </span>
             </div>
           ) : (
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto">
+            <div 
+              className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate('/dashboard')}
+            >
               <span className="text-white font-bold text-sm">S</span>
             </div>
           )}

@@ -33,9 +33,6 @@ const mainNavItems = [
   { title: "Próximamente", url: "/coming-soon", icon: Rocket },
 ];
 
-const shareNavItems = [
-  { title: "Compartir", url: "/share", icon: Users },
-];
 
 const settingsNavItems = [
   { title: "Configuración", url: "/settings", icon: Settings },
@@ -54,8 +51,6 @@ export function AppSidebar() {
       ? "bg-primary text-primary-foreground font-medium hover:bg-primary/90" 
       : "hover:bg-accent hover:text-accent-foreground";
 
-  // Mock user data - will be replaced with real auth data
-  const hasSharing = true; // This should come from user context
 
   return (
     <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon">
@@ -106,29 +101,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Share Navigation */}
-        {hasSharing && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Compartir</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {shareNavItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink 
-                        to={item.url} 
-                        className={getNavClassName(item.url)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {!isCollapsed && <span>{item.title}</span>}
-                        </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
 
         {/* Settings */}
         <SidebarGroup>

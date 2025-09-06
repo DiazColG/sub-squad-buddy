@@ -16,7 +16,7 @@ import {
   DollarSign,
   Loader2,
   PauseCircle,
-  Share,
+  
   Settings
 } from "lucide-react";
 import {
@@ -191,11 +191,6 @@ const Subscriptions = () => {
                         <DropdownMenuItem>
                           <Settings className="h-4 w-4 mr-2" />
                           Configurar
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                          <Share className="h-4 w-4 mr-2" />
-                          Compartir
                         </DropdownMenuItem>
                         <DropdownMenuItem>
                           <PauseCircle className="h-4 w-4 mr-2" />

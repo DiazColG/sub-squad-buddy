@@ -90,27 +90,30 @@ const Analytics = () => {
           sub => sub.billing_cycle === cycle && sub.category === category
         );
         
-        const total = categorySubscriptions.reduce((sum, sub) => {
-          let monthlyAmount = 0;
-          const cost = sub.cost || 0;
-          
-          switch (cycle) {
-            case 'Monthly':
-              monthlyAmount = cost;
-              break;
-            case 'Quarterly':
-              monthlyAmount = cost / 3;
-              break;
-            case 'Semi-Annually':
-              monthlyAmount = cost / 6;
-              break;
-            case 'Annually':
-              monthlyAmount = cost / 12;
-              break;
-          }
-          
-          return sum + monthlyAmount;
-        }, 0);
+          const total = categorySubscriptions.reduce((sum, sub) => {
+            let monthlyAmount = 0;
+            const cost = sub.cost || 0;
+            const sourceCurrency = sub.currency || 'USD';
+            
+            switch (cycle) {
+              case 'Monthly':
+                monthlyAmount = cost;
+                break;
+              case 'Quarterly':
+                monthlyAmount = cost / 3;
+                break;
+              case 'Semi-Annually':
+                monthlyAmount = cost / 6;
+                break;
+              case 'Annually':
+                monthlyAmount = cost / 12;
+                break;
+            }
+            
+            // Convert to user's preferred currency
+            const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, profile?.primary_display_currency || 'USD');
+            return sum + convertedAmount;
+          }, 0);
 
         if (total > 0) hasData = true;
         cycleData[category] = total >= 1000 ? Math.round(total) : parseFloat(total.toFixed(2));
@@ -256,7 +259,7 @@ const Analytics = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => [`$${value}`, 'Gasto mensual']} />
+                     <Tooltip formatter={(value: any) => [formatCurrency(value, profile?.primary_display_currency || 'USD'), 'Gasto mensual']} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -285,7 +288,7 @@ const Analytics = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="cycle" />
                     <YAxis />
-                    <Tooltip formatter={(value: any) => [`$${value}`, 'Gasto mensual']} />
+                    <Tooltip formatter={(value: any) => [formatCurrency(value, profile?.primary_display_currency || 'USD'), 'Gasto mensual']} />
                     <Legend />
                     {categories.map((category, index) => (
                       <Bar
@@ -332,10 +335,12 @@ const Analytics = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">${item.value}</p>
-                      <p className="text-xs text-muted-foreground">por mes</p>
-                    </div>
+                     <div className="text-right">
+                       <p className="font-semibold">
+                         {formatCurrency(item.value, profile?.primary_display_currency || 'USD')}
+                       </p>
+                       <p className="text-xs text-muted-foreground">por mes</p>
+                     </div>
                   </div>
                 ))}
               </div>

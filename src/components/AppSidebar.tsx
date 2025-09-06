@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainNavItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Suscripciones", url: "/subscriptions", icon: Package },
   { title: "Tarjetas", url: "/cards", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },

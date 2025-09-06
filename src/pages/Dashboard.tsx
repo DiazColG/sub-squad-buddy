@@ -62,19 +62,27 @@ const Dashboard = () => {
   const monthlyDisplay = formatCurrency(totalMonthly, userCurrency);
   const annualDisplay = formatCurrency(totalAnnual, userCurrency);
 
-  // Get upcoming renewals (next 30 days)
+  // Get upcoming renewals (next 10 days)
   const getUpcomingRenewals = () => {
     const today = new Date();
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    const tenDaysFromNow = new Date(today);
+    tenDaysFromNow.setDate(today.getDate() + 10);
     
     return subscriptions.filter(sub => {
       const renewalDate = new Date(sub.next_renewal_date);
-      return renewalDate >= today && renewalDate <= thirtyDaysFromNow;
-    }).slice(0, 3); // Show only first 3
+      return renewalDate >= today && renewalDate <= tenDaysFromNow;
+    }).sort((a, b) => new Date(a.next_renewal_date).getTime() - new Date(b.next_renewal_date).getTime());
+  };
+
+  // Get latest 5 subscriptions
+  const getLatestSubscriptions = () => {
+    return [...subscriptions]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
   };
 
   const upcomingRenewals = getUpcomingRenewals();
+  const latestSubscriptions = getLatestSubscriptions();
 
   if (loading || ratesLoading) {
     return (
@@ -218,38 +226,78 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Upcoming Renewals */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximas Renovaciones</CardTitle>
-          <CardDescription>Suscripciones que se renuevan en los próximos 30 días</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {upcomingRenewals.length > 0 ? (
-            upcomingRenewals.map((subscription) => (
-              <div key={subscription.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium">{subscription.service_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Renueva: {new Date(subscription.next_renewal_date).toLocaleDateString('es-ES')}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Upcoming Renewals */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximas Renovaciones</CardTitle>
+            <CardDescription>Suscripciones que se renuevan en los próximos 10 días</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {upcomingRenewals.length > 0 ? (
+              upcomingRenewals.map((subscription) => (
+                <div key={subscription.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
+                    <div>
+                      <p className="text-sm font-medium">{subscription.service_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Renueva: {new Date(subscription.next_renewal_date).toLocaleDateString('es-ES')}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline">
+                    {formatCurrency(
+                      convertCurrency(subscription.cost || 0, subscription.currency || 'USD', userCurrency),
+                      userCurrency
+                    )}
+                  </Badge>
+                </div>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No hay renovaciones próximas</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Latest Subscriptions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Últimas Suscripciones</CardTitle>
+            <CardDescription>Las 5 suscripciones agregadas más recientemente</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {latestSubscriptions.length > 0 ? (
+              latestSubscriptions.map((subscription) => (
+                <div key={subscription.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <div>
+                      <p className="text-sm font-medium">{subscription.service_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Agregada: {new Date(subscription.created_at).toLocaleDateString('es-ES')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant="secondary">
+                      {formatCurrency(
+                        convertCurrency(subscription.cost || 0, subscription.currency || 'USD', userCurrency),
+                        userCurrency
+                      )}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {subscription.billing_cycle}
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline">
-                  {formatCurrency(
-                    convertCurrency(subscription.cost || 0, subscription.currency || 'USD', userCurrency),
-                    userCurrency
-                  )}
-                </Badge>
-              </div>
-            ))
-          ) : (
-            <p className="text-muted-foreground text-center py-4">No hay renovaciones próximas</p>
-          )}
-        </CardContent>
-      </Card>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No hay suscripciones</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

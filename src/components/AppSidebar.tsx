@@ -6,7 +6,8 @@ import {
   BarChart3,
   Bell,
   MessageSquare,
-  Package
+  Package,
+  Rocket
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -29,6 +30,7 @@ const mainNavItems = [
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },
   { title: "Feedback", url: "/feedback", icon: MessageSquare },
+  { title: "Próximamente", url: "/coming-soon", icon: Rocket },
 ];
 
 const shareNavItems = [

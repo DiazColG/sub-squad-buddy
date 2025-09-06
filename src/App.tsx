@@ -11,6 +11,7 @@ import Subscriptions from "./pages/Subscriptions";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
 import Feedback from "./pages/Feedback";
+import ComingSoon from "./pages/ComingSoon";
 import Settings from "./pages/Settings";
 import Cards from "./pages/Cards";
 import Share from "./pages/Share";
@@ -62,6 +63,13 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <Feedback />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/coming-soon" element={
+            <ProtectedRoute>
+              <Layout>
+                <ComingSoon />
               </Layout>
             </ProtectedRoute>
           } />

@@ -98,16 +98,28 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
   };
 
   const handleCardSelection = (cardId: string) => {
-    const selectedCard = cards.find(card => card.id === cardId);
-    if (selectedCard) {
+    if (cardId === 'manual') {
+      // Reset card fields to allow manual entry
       setFormData(prev => ({
         ...prev,
-        card_id: cardId,
-        payment_method: selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card',
-        card_type: selectedCard.card_brand || 'other',
-        card_last_digits: selectedCard.card_last_digits,
-        bank_name: selectedCard.bank_name
+        card_id: '',
+        payment_method: '',
+        card_type: '',
+        card_last_digits: '',
+        bank_name: ''
       }));
+    } else {
+      const selectedCard = cards.find(card => card.id === cardId);
+      if (selectedCard) {
+        setFormData(prev => ({
+          ...prev,
+          card_id: cardId,
+          payment_method: selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card',
+          card_type: selectedCard.card_brand || 'other',
+          card_last_digits: selectedCard.card_last_digits,
+          bank_name: selectedCard.bank_name
+        }));
+      }
     }
   };
 
@@ -277,7 +289,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                       <SelectValue placeholder="Selecciona una tarjeta guardada" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border shadow-lg">
-                      <SelectItem value="">Ingresar manualmente</SelectItem>
+                      <SelectItem value="manual">Ingresar manualmente</SelectItem>
                       {cards.filter(card => card.is_active).map((card) => (
                         <SelectItem key={card.id} value={card.id}>
                           {getCardDisplayName(card)}

@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus } from 'lucide-react';
+import { CalendarIcon, Plus, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ import { useHousingServices, HousingService } from '@/hooks/useHousingServices';
 import { useCards } from '@/hooks/useCards';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { toast } from 'sonner';
 
 const housingCategories = [
   { value: 'utilities', label: 'Servicios básicos' },
@@ -49,11 +51,14 @@ interface AddHousingServiceFormProps {
 
 export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ onServiceAdded }) => {
   const { addHousingService } = useHousingServices();
-  const { cards } = useCards();
+  const { cards, addCard } = useCards();
   const { convertCurrency } = useCurrencyExchange();
   const { profile } = useUserProfile();
   const [open, setOpen] = useState(false);
   const [dueDateOpen, setDueDateOpen] = useState(false);
+  const [selectedPaymentOption, setSelectedPaymentOption] = useState<string>('');
+  const [showNewCardForm, setShowNewCardForm] = useState(false);
+  const [saveNewCard, setSaveNewCard] = useState(false);
 
   const [formData, setFormData] = useState<Partial<HousingService>>({
     service_name: '',
@@ -71,12 +76,28 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
     card_id: ''
   });
 
+  const [newCardData, setNewCardData] = useState({
+    cardholder_name: '',
+    bank_name: '',
+    card_brand: '',
+    card_type: 'credit' as 'credit' | 'debit',
+    card_last_digits: '',
+    expiry_date: '',
+    payment_method: 'credit_card'
+  });
+
   const getCardDisplayName = (card: any) => {
     return `${card.bank_name} *${card.card_last_digits}`;
   };
 
-  const handleCardSelection = (cardId: string) => {
-    if (cardId === 'manual') {
+  const handlePaymentOptionChange = (value: string) => {
+    setSelectedPaymentOption(value);
+    setShowNewCardForm(false);
+    setSaveNewCard(false);
+    
+    if (value === 'new_card') {
+      setShowNewCardForm(true);
+      // Clear previous card data
       setFormData(prev => ({
         ...prev,
         card_id: '',
@@ -85,12 +106,13 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
         card_last_digits: '',
         bank_name: ''
       }));
-    } else {
-      const selectedCard = cards.find(card => card.id === cardId);
+    } else if (value) {
+      // Existing card selected
+      const selectedCard = cards.find(card => card.id === value);
       if (selectedCard) {
         setFormData(prev => ({
           ...prev,
-          card_id: cardId,
+          card_id: value,
           payment_method: selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card',
           card_type: selectedCard.card_brand || 'other',
           card_last_digits: selectedCard.card_last_digits,
@@ -104,7 +126,45 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
     e.preventDefault();
     
     if (!formData.service_name || !formData.cost || !formData.category) {
+      toast.error('Por favor completa todos los campos obligatorios');
       return;
+    }
+
+    // If creating new card and save option is checked
+    if (showNewCardForm && saveNewCard) {
+      try {
+        const cardToSave = {
+          ...newCardData,
+          alert_days_before: 30,
+          enable_expiry_alert: true,
+          is_active: true
+        };
+        
+        const savedCard = await addCard(cardToSave);
+        if (savedCard) {
+          // Update service data with the new saved card
+          setFormData(prev => ({
+            ...prev,
+            card_id: savedCard.id,
+            payment_method: cardToSave.payment_method,
+            card_type: newCardData.card_brand,
+            card_last_digits: newCardData.card_last_digits,
+            bank_name: newCardData.bank_name
+          }));
+        }
+      } catch (error) {
+        toast.error('Error al guardar la tarjeta');
+        return;
+      }
+    } else if (showNewCardForm) {
+      // Just use the new card data without saving
+      setFormData(prev => ({
+        ...prev,
+        payment_method: newCardData.card_type === 'credit' ? 'credit_card' : 'debit_card',
+        card_type: newCardData.card_brand,
+        card_last_digits: newCardData.card_last_digits,
+        bank_name: newCardData.bank_name
+      }));
     }
 
     const serviceData = {
@@ -115,6 +175,7 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
     const result = await addHousingService(serviceData);
     
     if (result) {
+      // Reset form
       setFormData({
         service_name: '',
         cost: 0,
@@ -130,6 +191,18 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
         card_last_digits: '',
         card_id: ''
       });
+      setNewCardData({
+        cardholder_name: '',
+        bank_name: '',
+        card_brand: '',
+        card_type: 'credit' as 'credit' | 'debit',
+        card_last_digits: '',
+        expiry_date: '',
+        payment_method: 'credit_card'
+      });
+      setSelectedPaymentOption('');
+      setShowNewCardForm(false);
+      setSaveNewCard(false);
       setOpen(false);
       onServiceAdded();
     }
@@ -267,80 +340,138 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Información de Pago</CardTitle>
-              <CardDescription>Configura el método de pago para este servicio</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Método de Pago
+              </CardTitle>
+              <CardDescription>Selecciona o agrega un método de pago para este servicio</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Tarjeta Guardada</Label>
-                <Select onValueChange={handleCardSelection}>
+                <Label>Método de Pago</Label>
+                <Select value={selectedPaymentOption} onValueChange={handlePaymentOptionChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una tarjeta guardada" />
+                    <SelectValue placeholder="Selecciona un método de pago" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg">
-                    <SelectItem value="manual">Ingresar manualmente</SelectItem>
                     {cards.filter(card => card.is_active).map((card) => (
                       <SelectItem key={card.id} value={card.id}>
-                        {getCardDisplayName(card)}
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-4 h-4" />
+                          {getCardDisplayName(card)}
+                        </div>
                       </SelectItem>
                     ))}
+                    <SelectItem value="new_card">
+                      <div className="flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Nuevo método de pago
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="payment_method">Método de Pago</Label>
-                  <Select 
-                    value={formData.payment_method} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona método" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg">
-                      {paymentMethods.map((method) => (
-                        <SelectItem key={method.value} value={method.value}>
-                          {method.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {showNewCardForm && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Información del nuevo método de pago</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cardholder_name">Nombre del Titular</Label>
+                      <Input
+                        id="cardholder_name"
+                        value={newCardData.cardholder_name}
+                        onChange={(e) => setNewCardData(prev => ({ ...prev, cardholder_name: e.target.value }))}
+                        placeholder="Nombre completo"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Banco</Label>
-                  <Input
-                    id="bank_name"
-                    value={formData.bank_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, bank_name: e.target.value }))}
-                    placeholder="Nombre del banco"
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new_bank_name">Banco</Label>
+                      <Input
+                        id="new_bank_name"
+                        value={newCardData.bank_name}
+                        onChange={(e) => setNewCardData(prev => ({ ...prev, bank_name: e.target.value }))}
+                        placeholder="Nombre del banco"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="card_type">Tipo de Tarjeta</Label>
-                  <Input
-                    id="card_type"
-                    value={formData.card_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, card_type: e.target.value }))}
-                    placeholder="ej. Visa, Mastercard"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="card_brand">Marca de Tarjeta</Label>
+                      <Input
+                        id="card_brand"
+                        value={newCardData.card_brand}
+                        onChange={(e) => setNewCardData(prev => ({ ...prev, card_brand: e.target.value }))}
+                        placeholder="Visa, Mastercard, etc."
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="card_last_digits">Últimos 4 Dígitos</Label>
-                  <Input
-                    id="card_last_digits"
-                    value={formData.card_last_digits}
-                    onChange={(e) => setFormData(prev => ({ ...prev, card_last_digits: e.target.value }))}
-                    placeholder="1234"
-                    maxLength={4}
-                  />
+                    <div className="space-y-2">
+                      <Label htmlFor="new_card_type">Tipo</Label>
+                      <Select 
+                        value={newCardData.card_type} 
+                        onValueChange={(value) => setNewCardData(prev => ({ ...prev, card_type: value as 'credit' | 'debit' }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg">
+                          <SelectItem value="credit">Crédito</SelectItem>
+                          <SelectItem value="debit">Débito</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="new_card_last_digits">Últimos 4 Dígitos</Label>
+                      <Input
+                        id="new_card_last_digits"
+                        value={newCardData.card_last_digits}
+                        onChange={(e) => setNewCardData(prev => ({ ...prev, card_last_digits: e.target.value }))}
+                        placeholder="1234"
+                        maxLength={4}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expiry_date">Fecha de Vencimiento</Label>
+                    <Input
+                      id="expiry_date"
+                      type="date"
+                      value={newCardData.expiry_date}
+                      onChange={(e) => setNewCardData(prev => ({ ...prev, expiry_date: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="save_card" 
+                      checked={saveNewCard}
+                      onCheckedChange={(checked) => setSaveNewCard(checked === true)}
+                    />
+                    <Label htmlFor="save_card" className="text-sm">
+                      Guardar este método de pago para el futuro
+                    </Label>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {selectedPaymentOption && !showNewCardForm && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      Método de pago seleccionado: {getCardDisplayName(cards.find(c => c.id === selectedPaymentOption))}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

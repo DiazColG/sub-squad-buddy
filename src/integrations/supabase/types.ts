@@ -98,6 +98,69 @@ export type Database = {
         }
         Relationships: []
       }
+      housing_services: {
+        Row: {
+          alert_days_before: number | null
+          bank_name: string | null
+          billing_cycle: string | null
+          card_id: string | null
+          card_last_digits: string | null
+          card_type: string | null
+          category: string | null
+          cost: number | null
+          created_at: string
+          currency: string | null
+          enable_due_alert: boolean | null
+          id: string
+          next_due_date: string | null
+          payment_method: string | null
+          service_name: string
+          team_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_days_before?: number | null
+          bank_name?: string | null
+          billing_cycle?: string | null
+          card_id?: string | null
+          card_last_digits?: string | null
+          card_type?: string | null
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          enable_due_alert?: boolean | null
+          id?: string
+          next_due_date?: string | null
+          payment_method?: string | null
+          service_name: string
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_days_before?: number | null
+          bank_name?: string | null
+          billing_cycle?: string | null
+          card_id?: string | null
+          card_last_digits?: string | null
+          card_type?: string | null
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          enable_due_alert?: boolean | null
+          id?: string
+          next_due_date?: string | null
+          payment_method?: string | null
+          service_name?: string
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_type: string | null

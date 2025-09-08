@@ -103,7 +103,7 @@ const HousingServices = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto space-y-8">
+      <div className="w-full space-y-8">
         {/* Header Section - Optimized spacing and alignment */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div className="space-y-1">

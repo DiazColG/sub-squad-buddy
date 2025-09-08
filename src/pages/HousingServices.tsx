@@ -103,70 +103,76 @@ const HousingServices = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section - Optimized spacing and alignment */}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight">Servicios + Vivienda</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-base">
               Gestiona tus servicios básicos, alquiler y gastos de vivienda
             </p>
           </div>
-          <AddHousingServiceForm onServiceAdded={() => {}} />
+          <div className="flex-shrink-0">
+            <AddHousingServiceForm onServiceAdded={() => {}} />
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+        {/* Stats Cards - Better responsive grid */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="border-l-4 border-l-primary">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Servicios</CardTitle>
-              <Home className="h-4 w-4 text-muted-foreground" />
+              <Home className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{housingServices.length}</div>
-              <p className="text-xs text-muted-foreground">servicios activos</p>
+              <div className="text-3xl font-bold text-primary">{housingServices.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">servicios activos</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-green-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Gasto Mensual</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-green-600">
                 {formatCurrency(totalMonthlyCost, profile?.primary_display_currency || 'USD')}
               </div>
-              <p className="text-xs text-muted-foreground">aproximado por mes</p>
+              <p className="text-xs text-muted-foreground mt-1">aproximado por mes</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-orange-500 sm:col-span-2 lg:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Próximos Vencimientos</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-5 w-5 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-orange-600">
                 {housingServices.filter(service => 
                   service.next_due_date && new Date(service.next_due_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
                 ).length}
               </div>
-              <p className="text-xs text-muted-foreground">en los próximos 7 días</p>
+              <p className="text-xs text-muted-foreground mt-1">en los próximos 7 días</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex gap-4">
-          <div className="relative flex-1">
+        {/* Search and Filter Section - Improved layout */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Buscar servicios..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-10"
             />
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="w-4 h-4" />
+          <Button variant="outline" size="default" className="px-4">
+            <Filter className="w-4 h-4 mr-2" />
+            Filtros
           </Button>
         </div>
 
@@ -184,7 +190,7 @@ const HousingServices = () => {
             {!searchTerm && <AddHousingServiceForm onServiceAdded={() => {}} />}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredServices.map((service) => {
               const displayCost = convertCurrency(
                 service.cost,
@@ -193,20 +199,27 @@ const HousingServices = () => {
               );
 
               return (
-                <Card key={service.id} className="relative hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
+                <Card key={service.id} className="group relative hover:shadow-lg transition-all duration-200 border-0 shadow-sm hover:scale-[1.02]">
+                  <CardHeader className="pb-4">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${getCategoryColor(service.category)}`} />
-                        <CardTitle className="text-lg">{service.service_name}</CardTitle>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full ${getCategoryColor(service.category)} ring-2 ring-background shadow-sm`} />
+                        <div>
+                          <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                            {service.service_name}
+                          </CardTitle>
+                          <CardDescription className="text-sm mt-1">
+                            {getCategoryLabel(service.category)}
+                          </CardDescription>
+                        </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-background border shadow-lg">
+                        <DropdownMenuContent align="end" className="bg-background border shadow-lg z-50">
                           <DropdownMenuItem>
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
@@ -221,42 +234,45 @@ const HousingServices = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <CardDescription>
-                      {getCategoryLabel(service.category)}
-                    </CardDescription>
                   </CardHeader>
                   
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
+                    {/* Price and Billing Cycle */}
                     <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold">
+                      <div className="text-2xl font-bold text-primary">
                         {formatCurrency(displayCost, profile?.primary_display_currency || 'USD')}
-                      </span>
-                      <Badge variant="secondary" className={getBillingCycleColor(service.billing_cycle)}>
+                      </div>
+                      <Badge variant="secondary" className={`${getBillingCycleColor(service.billing_cycle)} font-medium`}>
                         {getBillingCycleLabel(service.billing_cycle)}
                       </Badge>
                     </div>
 
+                    {/* Due Date */}
                     {service.next_due_date && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">
                           Vence: {format(new Date(service.next_due_date), 'dd MMM yyyy')}
                         </span>
                       </div>
                     )}
 
+                    {/* Payment Method */}
                     {service.payment_method && (
-                      <div className="text-sm text-muted-foreground">
-                        {service.bank_name && service.card_last_digits
-                          ? `${service.bank_name} *${service.card_last_digits}`
-                          : service.payment_method
-                        }
+                      <div className="text-sm text-muted-foreground bg-muted/20 rounded-lg px-3 py-2">
+                        <span className="font-medium">
+                          {service.bank_name && service.card_last_digits
+                            ? `${service.bank_name} *${service.card_last_digits}`
+                            : service.payment_method
+                          }
+                        </span>
                       </div>
                     )}
 
+                    {/* Alert Badge */}
                     {service.enable_due_alert && (
-                      <Badge variant="outline" className="text-xs">
-                        Alerta {service.alert_days_before} días antes
+                      <Badge variant="outline" className="text-xs font-medium">
+                        🔔 Alerta {service.alert_days_before} días antes
                       </Badge>
                     )}
                   </CardContent>

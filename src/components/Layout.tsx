@@ -11,7 +11,7 @@ export function Layout({ children }: LayoutProps) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 pl-2 pr-6 py-6">
           {children}
         </main>
       </div>

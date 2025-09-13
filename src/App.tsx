@@ -9,6 +9,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Subscriptions from "./pages/Subscriptions";
 import HousingServices from "./pages/HousingServices";
+import { Installments } from "./pages/Installments";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
 import Feedback from "./pages/Feedback";
@@ -50,6 +51,13 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <HousingServices />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/installments" element={
+            <ProtectedRoute>
+              <Layout>
+                <Installments />
               </Layout>
             </ProtectedRoute>
           } />

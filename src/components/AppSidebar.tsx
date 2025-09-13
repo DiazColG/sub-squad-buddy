@@ -8,7 +8,8 @@ import {
   MessageSquare,
   Package,
   Rocket,
-  Home
+  Home,
+  Calculator
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -28,6 +29,7 @@ const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Suscripciones", url: "/subscriptions", icon: Package },
   { title: "Servicios+Vivienda", url: "/housing-services", icon: Home },
+  { title: "Cuotas", url: "/installments", icon: Calculator },
   { title: "Tarjetas", url: "/cards", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },

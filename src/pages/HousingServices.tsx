@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Search, Filter, MoreVertical, Home, Calendar, DollarSign, Trash2, Edit } from 'lucide-react';
-import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,59 +101,64 @@ const HousingServices = () => {
   }, 0);
 
   return (
-    <Layout>
-      <div className="w-full space-y-8">
-        {/* Header Section - Optimized spacing and alignment */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight">Servicios + Vivienda</h1>
-            <p className="text-muted-foreground text-base">
-              Gestiona tus servicios básicos, alquiler y gastos de vivienda
-            </p>
-          </div>
-          <div className="flex-shrink-0">
-            <AddHousingServiceForm onServiceAdded={() => {}} />
-          </div>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header Section */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Servicios + Vivienda</h1>
+          <p className="text-gray-600 mt-1">
+            Gestiona tus servicios básicos, alquiler y gastos de vivienda
+          </p>
         </div>
+        <div className="flex-shrink-0">
+          <AddHousingServiceForm onServiceAdded={() => {}} />
+        </div>
+      </div>
 
-        {/* Stats Cards - Better responsive grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-l-4 border-l-primary">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Servicios</CardTitle>
-              <Home className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-primary">{housingServices.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">servicios activos</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Servicios</p>
+                  <p className="text-2xl font-bold text-blue-600">{housingServices.length}</p>
+                  <p className="text-xs text-gray-500">servicios activos</p>
+                </div>
+                <Home className="w-8 h-8 text-blue-500" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Gasto Mensual</CardTitle>
-              <DollarSign className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                {formatCurrency(totalMonthlyCost, profile?.primary_display_currency || 'USD')}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Gasto Mensual</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(totalMonthlyCost, profile?.primary_display_currency || 'USD')}
+                  </p>
+                  <p className="text-xs text-gray-500">aproximado por mes</p>
+                </div>
+                <DollarSign className="w-8 h-8 text-green-500" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">aproximado por mes</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500 sm:col-span-2 lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Próximos Vencimientos</CardTitle>
-              <Calendar className="h-5 w-5 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600">
-                {housingServices.filter(service => 
-                  service.next_due_date && new Date(service.next_due_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                ).length}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Próximos Vencimientos</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {housingServices.filter(service => 
+                      service.next_due_date && new Date(service.next_due_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    ).length}
+                  </p>
+                  <p className="text-xs text-gray-500">en los próximos 7 días</p>
+                </div>
+                <Calendar className="w-8 h-8 text-orange-500" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">en los próximos 7 días</p>
             </CardContent>
           </Card>
         </div>
@@ -281,8 +285,7 @@ const HousingServices = () => {
             })}
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 };
 

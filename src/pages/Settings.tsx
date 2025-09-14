@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
+import { BetaTestingSettings } from "@/components/BetaTestingSettings";
 import { User, Globe, Bell, Shield, CreditCard, RefreshCw } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -238,6 +239,9 @@ const Settings = () => {
 
           {/* Account Info Sidebar */}
           <div className="space-y-6">
+            {/* Beta Testing Settings */}
+            <BetaTestingSettings />
+
             <Card className="shadow-card border-card-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

@@ -16,6 +16,11 @@ import Feedback from "./pages/Feedback";
 import ComingSoon from "./pages/ComingSoon";
 import Settings from "./pages/Settings";
 import Cards from "./pages/Cards";
+import IncomeManagement from "./pages/IncomeManagement";
+import ExpenseManagement from "./pages/ExpenseManagement";
+import SavingsGoals from "./pages/SavingsGoals";
+import BudgetManagement from "./pages/BudgetManagement";
+import FinanceDashboard from "./pages/FinanceDashboard";
 
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
@@ -103,6 +108,44 @@ const App = () => (
               </Layout>
             </ProtectedRoute>
           } />
+          
+          {/* Personal Finance Routes (Beta) */}
+          <Route path="/finance" element={
+            <ProtectedRoute>
+              <Layout>
+                <FinanceDashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/finance/income" element={
+            <ProtectedRoute>
+              <Layout>
+                <IncomeManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/finance/expenses" element={
+            <ProtectedRoute>
+              <Layout>
+                <ExpenseManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/finance/goals" element={
+            <ProtectedRoute>
+              <Layout>
+                <SavingsGoals />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/finance/budgets" element={
+            <ProtectedRoute>
+              <Layout>
+                <BudgetManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

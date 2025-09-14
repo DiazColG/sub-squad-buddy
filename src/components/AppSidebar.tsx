@@ -9,9 +9,14 @@ import {
   Package,
   Rocket,
   Home,
-  Calculator
+  Calculator,
+  DollarSign,
+  TrendingUp,
+  Target,
+  PiggyBank
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useUserSettings } from "@/hooks/useUserSettings";
 
 import {
   Sidebar,
@@ -37,6 +42,15 @@ const mainNavItems = [
   { title: "Próximamente", url: "/coming-soon", icon: Rocket },
 ];
 
+// New Personal Finance section (beta)
+const financeNavItems = [
+  { title: "Resumen Financiero", url: "/finance", icon: DollarSign },
+  { title: "Ingresos", url: "/finance/income", icon: TrendingUp },
+  { title: "Gastos", url: "/finance/expenses", icon: Calculator },
+  { title: "Metas de Ahorro", url: "/finance/goals", icon: Target },
+  { title: "Presupuestos", url: "/finance/budgets", icon: PiggyBank },
+];
+
 
 const settingsNavItems = [
   { title: "Configuración", url: "/settings", icon: Settings },
@@ -46,6 +60,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isFeatureEnabled } = useUserSettings();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -57,7 +72,10 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar 
+      className={`${isCollapsed ? "w-14" : "w-64"} border-r bg-background fixed left-0 top-0 h-full z-10`} 
+      collapsible="icon"
+    >
       <SidebarContent>
         {/* Brand */}
         <div className="p-4 border-b">
@@ -104,6 +122,33 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Personal Finance Navigation (Beta) - Only show if enabled */}
+        {isFeatureEnabled('personal_finance') && (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              💰 Finanzas Personales
+              {!isCollapsed && <span className="ml-1 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">BETA</span>}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {financeNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.url} 
+                        className={getNavClassName(item.url)}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.title}</span>}
+                        </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
 
         {/* Settings */}

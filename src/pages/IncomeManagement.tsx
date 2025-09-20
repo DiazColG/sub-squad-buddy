@@ -4,40 +4,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { useFinancialCategories } from '@/hooks/useFinancialCategories';
-import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info } from 'lucide-react';
+import { useIncomes } from '@/hooks/useIncomes';
+import { AddIncomeForm } from '@/components/AddIncomeForm';
+import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info, Edit, Trash2 } from 'lucide-react';
 
 const IncomeManagement = () => {
   const { isFeatureEnabled } = useUserSettings();
-  const { categories, isLoading: categoriesLoading } = useFinancialCategories();
+  const { incomes, isLoading, getTotalMonthlyIncome, getActiveIncomesCount, deleteIncome } = useIncomes();
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Mock data para demostración
-  const mockIncomes = [
-    {
-      id: '1',
-      name: 'Salario Principal',
-      description: 'Trabajo tiempo completo',
-      amount: 3500,
-      frequency: 'monthly',
-      start_date: '2024-01-01',
-      category: 'Salario',
-      is_active: true,
-      payment_day: 25
-    },
-    {
-      id: '2', 
-      name: 'Freelance Desarrollo',
-      description: 'Proyectos de desarrollo web',
-      amount: 800,
-      frequency: 'monthly',
-      start_date: '2024-02-01',
-      category: 'Freelance',
-      is_active: true,
-      payment_day: 15
+  // Manejar eliminación de ingresos
+  const handleDeleteIncome = async (id: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este ingreso?')) {
+      await deleteIncome(id);
     }
-  ];
+  };
+
+  // Formatear frecuencia para mostrar
+  const formatFrequency = (frequency: string) => {
+    const frequencies: Record<string, string> = {
+      'once': 'Una vez',
+      'weekly': 'Semanal',
+      'biweekly': 'Quincenal', 
+      'monthly': 'Mensual',
+      'quarterly': 'Trimestral',
+      'yearly': 'Anual'
+    };
+    return frequencies[frequency] || frequency;
+  };
 
   // Verificar si la feature está habilitada
   if (!isFeatureEnabled('personal_finance')) {
@@ -48,7 +44,7 @@ const IncomeManagement = () => {
             <Info className="h-4 w-4" />
             <AlertDescription>
               Esta funcionalidad está disponible en el programa beta. 
-              Ve a <strong>Configuración</strong> para activar las finanzas personales.
+              Ve a Settings para activarla.
             </AlertDescription>
           </Alert>
         </div>
@@ -63,42 +59,20 @@ const IncomeManagement = () => {
     }).format(amount);
   };
 
-  const getFrequencyLabel = (frequency: string) => {
-    const labels = {
-      once: 'Una vez',
-      weekly: 'Semanal',
-      biweekly: 'Quincenal', 
-      monthly: 'Mensual',
-      quarterly: 'Trimestral',
-      yearly: 'Anual'
-    };
-    return labels[frequency as keyof typeof labels] || frequency;
-  };
-
-  const calculateMonthlyTotal = () => {
-    return mockIncomes
-      .filter(income => income.is_active)
-      .reduce((total, income) => {
-        let monthlyAmount = income.amount;
-        
-        switch (income.frequency) {
-          case 'weekly':
-            monthlyAmount = income.amount * 4.33;
-            break;
-          case 'biweekly':
-            monthlyAmount = income.amount * 2.17;
-            break;
-          case 'quarterly':
-            monthlyAmount = income.amount / 3;
-            break;
-          case 'yearly':
-            monthlyAmount = income.amount / 12;
-            break;
-        }
-        
-        return total + monthlyAmount;
-      }, 0);
-  };
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto p-6 space-y-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-muted-foreground">Cargando ingresos...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -121,6 +95,19 @@ const IncomeManagement = () => {
           </Button>
         </div>
 
+        {/* Dialog para agregar ingreso */}
+        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Agregar Nuevo Ingreso</DialogTitle>
+            </DialogHeader>
+            <AddIncomeForm 
+              onSuccess={() => setShowAddForm(false)}
+              onCancel={() => setShowAddForm(false)}
+            />
+          </DialogContent>
+        </Dialog>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
@@ -132,7 +119,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(calculateMonthlyTotal())}
+                {formatCurrency(getTotalMonthlyIncome())}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Total estimado mensual
@@ -149,7 +136,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockIncomes.filter(i => i.is_active).length}
+                {getActiveIncomesCount()}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Ingresos configurados
@@ -166,7 +153,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(calculateMonthlyTotal() / 4.33)}
+                {formatCurrency(getTotalMonthlyIncome() / 4.33)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Estimado semanal
@@ -193,81 +180,89 @@ const IncomeManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockIncomes.map((income) => (
-                <div 
-                  key={income.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">{income.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {income.description}
-                        </p>
-                        <div className="flex items-center gap-4 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {income.category}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {getFrequencyLabel(income.frequency)}
-                          </span>
-                          {income.payment_day && (
-                            <span className="text-xs text-muted-foreground">
-                              Día {income.payment_day}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-green-600">
-                      {formatCurrency(income.amount)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {getFrequencyLabel(income.frequency)}
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <Badge 
-                      variant={income.is_active ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {income.is_active ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-
-              {mockIncomes.length === 0 && (
-                <div className="text-center py-8">
+              {incomes.length === 0 ? (
+                <div className="text-center py-12">
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No hay ingresos configurados</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Comienza agregando tu primer ingreso para llevar un mejor control
+                  <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                    No tienes ingresos registrados
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Comienza agregando tu primer ingreso para empezar a gestionar tus finanzas
                   </p>
                   <Button onClick={() => setShowAddForm(true)} className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Agregar Primer Ingreso
+                    Agregar Mi Primer Ingreso
                   </Button>
                 </div>
+              ) : (
+                incomes.map((income) => (
+                  <div 
+                    key={income.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <DollarSign className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{income.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {income.description || 'Sin descripción'}
+                          </p>
+                          <div className="flex items-center gap-4 mt-1">
+                            <Badge 
+                              variant={income.is_active ? "default" : "secondary"} 
+                              className="text-xs"
+                            >
+                              {income.is_active ? 'Activo' : 'Inactivo'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatFrequency(income.frequency)}
+                            </span>
+                            {income.payment_day && (
+                              <span className="text-xs text-muted-foreground">
+                                Día {income.payment_day}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="font-semibold text-green-600">
+                          {formatCurrency(income.amount)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatFrequency(income.frequency)}
+                        </div>
+                        {income.monthly_amount && (
+                          <div className="text-xs text-muted-foreground">
+                            ~{formatCurrency(income.monthly_amount)}/mes
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => income.id && handleDeleteIncome(income.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </CardContent>
         </Card>
-
-        {/* Beta Notice */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Funcionalidad Beta:</strong> Esta es una versión de prueba del módulo de ingresos. 
-            Los datos mostrados son de demostración. Las funcionalidades completas estarán disponibles próximamente.
-          </AlertDescription>
-        </Alert>
       </div>
     </Layout>
   );

@@ -148,7 +148,7 @@ export const useInstallments = () => {
       const newPaidInstallments = currentData.paid_installments + 1;
       const isCompleted = newPaidInstallments >= currentData.total_installments;
       
-      let updateData: any = {
+      const updateData: any = {
         paid_installments: newPaidInstallments,
         updated_at: new Date().toISOString()
       };

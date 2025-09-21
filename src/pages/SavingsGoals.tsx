@@ -5,11 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { useUserSettings } from '@/hooks/useUserSettings';
+// removed beta gating
 import { Target, Plus, DollarSign, Calendar, TrendingUp, CheckCircle, Info } from 'lucide-react';
 
 const SavingsGoals = () => {
-  const { isFeatureEnabled } = useUserSettings();
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Mock data para demostración
@@ -60,22 +59,7 @@ const SavingsGoals = () => {
     }
   ];
 
-  // Verificar si la feature está habilitada
-  if (!isFeatureEnabled('personal_finance')) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Esta funcionalidad está disponible en el programa beta. 
-              Activa las funciones beta en Configuración para acceder.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Layout>
-    );
-  }
+  // removed beta gating
 
   // Calcular estadísticas
   const activeGoals = mockGoals.filter(goal => goal.is_active);
@@ -325,16 +309,7 @@ const SavingsGoals = () => {
           </Card>
         )}
 
-        {/* Estado beta */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Funcionalidad Beta:</strong> Esta función está en desarrollo. 
-            Los datos mostrados son ejemplos para demostración. La funcionalidad completa 
-            incluirá formularios para crear/editar metas, agregar dinero a las metas y 
-            sincronización con la base de datos.
-          </AlertDescription>
-        </Alert>
+        {/* */}
       </div>
     </Layout>
   );

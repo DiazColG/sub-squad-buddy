@@ -1,354 +1,308 @@
-import { useState, useMemo } from 'react';
-import { formatNumber, formatPercentage } from "@/lib/formatNumber";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { useExpenses } from "@/hooks/useExpenses";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter } from 'lucide-react';
-import { useUserProfile } from "@/hooks/useUserProfile";
-import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
+import { TrendingUp, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { formatCurrency } from "@/lib/formatNumber";
+import { Layout } from "@/components/Layout";
 
 const Analytics = () => {
-  const { subscriptions, loading } = useSubscriptions();
-  const { profile } = useUserProfile();
-  const { convertCurrency, formatCurrency, loading: ratesLoading } = useCurrencyExchange();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const { expenses, isLoading } = useExpenses();
+  const [categoryData, setCategoryData] = useState([]);
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [optimizationData, setOptimizationData] = useState([]);
 
-  // Get unique categories
-  const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(subscriptions.map(sub => sub.category).filter(Boolean))];
-    return uniqueCategories;
-  }, [subscriptions]);
-
-  // Filter subscriptions by category
-  const filteredSubscriptions = useMemo(() => {
-    if (selectedCategory === 'all') return subscriptions;
-    return subscriptions.filter(sub => sub.category === selectedCategory);
-  }, [subscriptions, selectedCategory]);
-
-  // Prepare data for pie chart (spending by category) - converted to user's currency
-  const pieChartData = useMemo(() => {
-    if (!profile?.primary_display_currency) return [];
-    
-    const categoryTotals: Record<string, number> = {};
-    const userCurrency = profile.primary_display_currency;
-    
-    filteredSubscriptions.forEach(sub => {
-      const category = sub.category || 'Sin categoría';
-      const cost = sub.cost || 0;
-      const sourceCurrency = sub.currency || 'USD';
-      
-      // Convert to monthly cost
-      let monthlyAmount = 0;
-      switch (sub.billing_cycle) {
-        case 'Monthly':
-          monthlyAmount = cost;
-          break;
-        case 'Quarterly':
-          monthlyAmount = cost / 3;
-          break;
-        case 'Semi-Annually':
-          monthlyAmount = cost / 6;
-          break;
-        case 'Annually':
-          monthlyAmount = cost / 12;
-          break;
-        default:
-          monthlyAmount = cost;
-      }
-      
-      // Convert to user's preferred currency
-      const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, userCurrency);
-      categoryTotals[category] = (categoryTotals[category] || 0) + convertedAmount;
-    });
-
-    return Object.entries(categoryTotals).map(([category, value]) => ({
-      name: category,
-      value: value >= 1000 ? Math.round(value) : parseFloat(value.toFixed(2)),
-      count: filteredSubscriptions.filter(sub => (sub.category || 'Sin categoría') === category).length
-    }));
-  }, [filteredSubscriptions, convertCurrency, profile?.primary_display_currency]);
-
-  // Prepare data for stacked bar chart (spending by billing cycle and category)
-  const barChartData = useMemo(() => {
-    const billingCycles = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
-    const categoryColors: Record<string, string> = {};
-    
-    // Assign colors to categories
-    categories.forEach((cat, index) => {
-      const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
-      categoryColors[cat] = colors[index % colors.length];
-    });
-
-    return billingCycles.map(cycle => {
-      const cycleData: any = { cycle };
-      let hasData = false;
-
-      categories.forEach(category => {
-        const categorySubscriptions = filteredSubscriptions.filter(
-          sub => sub.billing_cycle === cycle && sub.category === category
-        );
+  useEffect(() => {
+    if (expenses.length > 0) {
+      // Datos por categoría
+      const categoryTotals = {};
+      expenses.forEach(expense => {
+        const categoryName = expense.category?.name || 'Sin categoría';
+        const categoryIcon = expense.category?.icon || '💰';
+        const key = `${categoryIcon} ${categoryName}`;
         
-          const total = categorySubscriptions.reduce((sum, sub) => {
-            let monthlyAmount = 0;
-            const cost = sub.cost || 0;
-            const sourceCurrency = sub.currency || 'USD';
-            
-            switch (cycle) {
-              case 'Monthly':
-                monthlyAmount = cost;
-                break;
-              case 'Quarterly':
-                monthlyAmount = cost / 3;
-                break;
-              case 'Semi-Annually':
-                monthlyAmount = cost / 6;
-                break;
-              case 'Annually':
-                monthlyAmount = cost / 12;
-                break;
-            }
-            
-            // Convert to user's preferred currency
-            const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, profile?.primary_display_currency || 'USD');
-            return sum + convertedAmount;
-          }, 0);
-
-        if (total > 0) hasData = true;
-        cycleData[category] = total >= 1000 ? Math.round(total) : parseFloat(total.toFixed(2));
+        if (!categoryTotals[key]) {
+          categoryTotals[key] = 0;
+        }
+        categoryTotals[key] += expense.amount || 0;
       });
 
-      return hasData ? cycleData : null;
-    }).filter(Boolean);
-  }, [filteredSubscriptions, categories]);
+      const categoryArray = Object.entries(categoryTotals).map(([name, value]) => ({
+        name,
+        value,
+        percentage: ((value / Math.max(expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0), 1)) * 100).toFixed(1)
+      }));
+      setCategoryData(categoryArray);
 
-  // Colors for pie chart
+      // Datos mensuales
+      const monthlyTotals = {};
+      expenses.forEach(expense => {
+        const date = new Date(expense.created_at);
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        if (!monthlyTotals[monthKey]) {
+          monthlyTotals[monthKey] = 0;
+        }
+        monthlyTotals[monthKey] += expense.amount || 0;
+      });
+
+      const monthlyArray = Object.entries(monthlyTotals)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-6) // Últimos 6 meses
+        .map(([month, amount]) => ({
+          month: new Date(month + '-01').toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
+          amount
+        }));
+      setMonthlyData(monthlyArray);
+
+      // Datos de optimización
+      const optimizationTotals = {
+        'Alto potencial (8-10)': 0,
+        'Medio potencial (5-7)': 0,
+        'Bien optimizado (0-4)': 0
+      };
+
+      expenses.forEach(expense => {
+        const potential = expense.optimization_potential || 0;
+        if (potential >= 8) {
+          optimizationTotals['Alto potencial (8-10)'] += expense.amount || 0;
+        } else if (potential >= 5) {
+          optimizationTotals['Medio potencial (5-7)'] += expense.amount || 0;
+        } else {
+          optimizationTotals['Bien optimizado (0-4)'] += expense.amount || 0;
+        }
+      });
+
+      const optimizationArray = Object.entries(optimizationTotals).map(([name, value]) => ({
+        name,
+        value,
+        percentage: ((value / Math.max(expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0), 1)) * 100).toFixed(1)
+      }));
+      setOptimizationData(optimizationArray);
+    }
+  }, [expenses]);
+
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-  // Calculate total spending (monthly equivalent) - converted to user's currency
-  const totalSpending = useMemo(() => {
-    if (!profile?.primary_display_currency) return 0;
-    
-    const userCurrency = profile.primary_display_currency;
-    
-    return filteredSubscriptions.reduce((total, sub) => {
-      const cost = sub.cost || 0;
-      const sourceCurrency = sub.currency || 'USD';
-      
-      let monthlyAmount = 0;
-      switch (sub.billing_cycle) {
-        case 'Monthly':
-          monthlyAmount = cost;
-          break;
-        case 'Quarterly':
-          monthlyAmount = cost / 3;
-          break;
-        case 'Semi-Annually':
-          monthlyAmount = cost / 6;
-          break;
-        case 'Annually':
-          monthlyAmount = cost / 12;
-          break;
-        default:
-          monthlyAmount = cost;
-      }
-      
-      // Convert to user's preferred currency
-      const convertedAmount = convertCurrency(monthlyAmount, sourceCurrency, userCurrency);
-      return total + convertedAmount;
-    }, 0);
-  }, [filteredSubscriptions, convertCurrency, profile?.primary_display_currency]);
-
-  if (loading || ratesLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando analíticas...</p>
+          </div>
+        </div>
+      </Layout>
     );
   }
 
-  return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Análisis</h1>
-          <p className="text-muted-foreground">
-            Analiza tus gastos personales y compartidos por categoría
-          </p>
+  if (expenses.length === 0) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="w-8 h-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">Analíticas</h1>
+              <p className="text-muted-foreground">
+                Análisis inteligente de tus gastos y patrones financieros
+              </p>
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <BarChart3 className="w-16 h-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No hay datos para analizar</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                Registra algunos gastos para ver analíticas detalladas de tus patrones financieros
+              </p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </Layout>
+    );
+  }
 
-      {/* Filter Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-          <CardDescription>
-            Filtra los datos por categoría para análisis específicos
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Categoría:</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Seleccionar categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">
-              {filteredSubscriptions.length} suscripciones
-            </Badge>
-            <Badge variant="outline">
-              {formatCurrency(totalSpending, profile?.primary_display_currency || 'USD')} gasto mensual
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+  const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const averageExpense = totalExpenses / expenses.length;
+  const highOptimizationCount = expenses.filter(exp => (exp.optimization_potential || 0) >= 8).length;
 
-      {subscriptions.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No hay datos para analizar</h3>
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <TrendingUp className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">Analíticas</h1>
             <p className="text-muted-foreground">
-              Agrega algunas suscripciones para ver análisis detallados de tus gastos.
+              Análisis inteligente de tus gastos y patrones financieros
             </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Pie Chart - Spending by Category */}
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Gastos</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalExpenses, 'ARS')}</div>
+              <p className="text-xs text-muted-foreground">
+                {expenses.length} gastos registrados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Promedio por Gasto</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(averageExpense, 'ARS')}</div>
+              <p className="text-xs text-muted-foreground">
+                Gasto promedio
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Oportunidades de Ahorro</CardTitle>
+              <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{highOptimizationCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Gastos con alto potencial de optimización
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Gráfico por Categorías */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PieChartIcon className="h-5 w-5" />
-                Gastos por Categoría
-              </CardTitle>
+              <CardTitle>Gastos por Categoría</CardTitle>
               <CardDescription>
-                Distribución del gasto mensual por categoría
+                Distribución de tus gastos por categorías inteligentes
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {pieChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={pieChartData}
+                      data={categoryData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${formatPercentage(percent)}`}
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                     >
-                      {pieChartData.map((entry, index) => (
+                      {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                     <Tooltip formatter={(value: any) => [formatCurrency(value, profile?.primary_display_currency || 'USD'), 'Gasto mensual']} />
+                    <Tooltip formatter={(value) => formatCurrency(value, 'ARS')} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No hay datos para mostrar
-                </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Bar Chart - Spending by Billing Cycle and Category */}
+          {/* Gráfico de Tendencia Mensual */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Gastos por Ciclo de Facturación
-              </CardTitle>
+              <CardTitle>Tendencia Mensual</CardTitle>
               <CardDescription>
-                Comparación de gastos mensuales por ciclo y categoría
+                Evolución de tus gastos en los últimos meses
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {barChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={barChartData}>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="cycle" />
+                    <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value: any) => [formatCurrency(value, profile?.primary_display_currency || 'USD'), 'Gasto mensual']} />
+                    <Tooltip formatter={(value) => formatCurrency(value, 'ARS')} />
                     <Legend />
-                    {categories.map((category, index) => (
-                      <Bar
-                        key={category}
-                        dataKey={category}
-                        stackId="a"
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
+                    <Bar dataKey="amount" fill="#8884d8" name="Gastos" />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No hay datos para mostrar
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Summary Cards */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Resumen por Categorías</CardTitle>
-              <CardDescription>
-                Detalle del gasto mensual por cada categoría
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {pieChartData.map((item, index) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.count} suscripciones
-                        </p>
-                      </div>
-                    </div>
-                     <div className="text-right">
-                       <p className="font-semibold">
-                         {formatCurrency(item.value, profile?.primary_display_currency || 'USD')}
-                       </p>
-                       <p className="text-xs text-muted-foreground">por mes</p>
-                     </div>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>
         </div>
-      )}
-    </div>
+
+        {/* Análisis de Optimización */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Análisis de Optimización</CardTitle>
+            <CardDescription>
+              Potencial de ahorro basado en IA
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={optimizationData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      <Cell fill="#FF8042" />
+                      <Cell fill="#FFBB28" />
+                      <Cell fill="#00C49F" />
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(value, 'ARS')} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-3">Insights de Optimización</h4>
+                  <div className="space-y-3">
+                    {optimizationData.map((item, index) => (
+                      <div key={item.name} className="flex items-center justify-between p-3 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: ['#FF8042', '#FFBB28', '#00C49F'][index] }}
+                          />
+                          <span className="text-sm font-medium">{item.name}</span>
+                        </div>
+                        <Badge variant="outline">
+                          {formatCurrency(item.value, 'ARS')}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
   );
 };
 

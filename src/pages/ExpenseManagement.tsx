@@ -1,96 +1,54 @@
-import React, { useState } from 'react';
-import { Layout } from '@/components/Layout';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useUserSettings } from '@/hooks/useUserSettings';
+// removed beta gating
 import { useFinancialCategories } from '@/hooks/useFinancialCategories';
 import { CreditCard, Plus, TrendingDown, Calendar, Filter, Info, DollarSign } from 'lucide-react';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
+import { useExpenses } from '@/hooks/useExpenses';
+import AddExpenseForm from '@/components/AddExpenseForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const ExpenseManagement = () => {
-  const { isFeatureEnabled } = useUserSettings();
+  // removed beta gating usage
   const { categories, isLoading: categoriesLoading } = useFinancialCategories();
   const [showAddForm, setShowAddForm] = useState(false);
+  const { profile } = useUserProfile();
+  const { formatCurrency: fmt } = useCurrencyExchange();
+  const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
-  const mockExpenses = [
-    {
-      id: '1',
-      name: 'Alquiler',
-      description: 'Departamento 2 ambientes',
-      amount: 1200,
-      frequency: 'monthly',
-      start_date: '2024-01-01',
-      category: 'Vivienda',
-      is_active: true,
-      payment_day: 5
-    },
-    {
-      id: '2', 
-      name: 'Supermercado',
-      description: 'Compras semanales',
-      amount: 300,
-      frequency: 'weekly',
-      start_date: '2024-01-01',
-      category: 'Alimentación',
-      is_active: true,
-      payment_day: null
-    },
-    {
-      id: '3',
-      name: 'Netflix',
-      description: 'Suscripción mensual',
-      amount: 15,
-      frequency: 'monthly',
-      start_date: '2024-01-01',
-      category: 'Entretenimiento',
-      is_active: true,
-      payment_day: 10
-    },
-    {
-      id: '4',
-      name: 'Combustible',
-      description: 'Gasolina del auto',
-      amount: 80,
-      frequency: 'monthly',
-      start_date: '2024-01-01',
-      category: 'Transporte',
-      is_active: true,
-      payment_day: null
-    }
-  ];
+  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, autoConfirmDueAutopay, isExpensePaid, markExpensePaid } = useExpenses();
+  const pendingRecurrent = getPendingRecurringForMonth(new Date());
+  const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
+  const dueSoon = getDueSoonRecurring(new Date());
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
-  // Verificar si la feature está habilitada
-  if (!isFeatureEnabled('personal_finance')) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Esta funcionalidad está disponible en el programa beta. 
-              Activa las funciones beta en Configuración para acceder.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Layout>
-    );
-  }
+  useEffect(() => {
+    // Autopago: confirmar automáticamente los que vencen hoy o antes
+    autoConfirmDueAutopay(new Date());
+  }, [autoConfirmDueAutopay]);
+
+  // removed beta gating
 
   // Calcular estadísticas
-  const totalMonthlyExpenses = mockExpenses
-    .filter(expense => expense.is_active)
+  const totalMonthlyExpenses = expenses
+    .filter(expense => expense.is_recurring ?? true)
     .reduce((sum, expense) => {
-      if (expense.frequency === 'monthly') return sum + expense.amount;
-      if (expense.frequency === 'weekly') return sum + (expense.amount * 4.33);
-      if (expense.frequency === 'daily') return sum + (expense.amount * 30);
+      const freq = expense.frequency || 'monthly';
+      if (freq === 'monthly') return sum + expense.amount;
+      if (freq === 'weekly') return sum + expense.amount * 4.33;
+      if (freq === 'daily') return sum + expense.amount * 30;
+      if (freq === 'yearly') return sum + expense.amount / 12;
       return sum;
     }, 0);
 
   const totalAnnualExpenses = totalMonthlyExpenses * 12;
 
-  const getFrequencyBadge = (frequency: string) => {
+  const getFrequencyBadge = (frequency?: string | null) => {
     const colorMap = {
       daily: 'bg-red-100 text-red-800',
       weekly: 'bg-orange-100 text-orange-800', 
@@ -106,21 +64,15 @@ const ExpenseManagement = () => {
     };
 
     return (
-      <Badge className={colorMap[frequency as keyof typeof colorMap] || 'bg-gray-100 text-gray-800'}>
-        {labelMap[frequency as keyof typeof labelMap] || frequency}
+      <Badge className={colorMap[(frequency || 'monthly') as keyof typeof colorMap] || 'bg-gray-100 text-gray-800'}>
+        {labelMap[(frequency || 'monthly') as keyof typeof labelMap] || frequency}
       </Badge>
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 
   return (
-    <Layout>
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -136,6 +88,64 @@ const ExpenseManagement = () => {
             Nuevo Gasto
           </Button>
         </div>
+
+        {/* Recordatorios próximos */}
+        {dueSoon.length > 0 && (
+          <Alert>
+            <AlertDescription>
+              Tenés {dueSoon.length} gasto(s) recurrente(s) por vencer pronto. ¡Revisá y confirmá!
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Recurrentes de este mes */}
+        {pendingRecurrent.length > 0 && (
+          <Card className="border-blue-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Recurrentes de este mes</CardTitle>
+                  <CardDescription>Confirmá o editá los gastos recurrentes pendientes</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setConfirmAllOpen(true)}>Confirmar todo</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {pendingRecurrent.map(item => (
+                  <div key={item.template.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <div className="font-medium">{item.template.name}</div>
+                      <div className="text-sm text-muted-foreground">Sugerido: {formatCurrency(item.suggested.amount)} • Fecha {item.suggested.date}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => snoozeRecurringTemplate(item.template.id, 7)}>Posponer 7 días</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingPending({ templateId: item.template.id, amount: String(item.suggested.amount), date: item.suggested.date })}>Editar</Button>
+                      <Button size="sm" onClick={() => confirmRecurringForMonth(item.template.id, { amount: item.suggested.amount, date: item.suggested.date })}>Confirmar</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Confirm All Modal */}
+        <Dialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar todos los recurrentes</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <div>Cantidad: {pendingRecurrent.length}</div>
+              <div>Total: {formatCurrency(pendingRecurrent.reduce((s, it) => s + (it.suggested.amount || 0), 0))}</div>
+            </div>
+            <DialogFooter className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setConfirmAllOpen(false)}>Cancelar</Button>
+              <Button onClick={async () => { await confirmAllPendingForMonth(new Date()); setConfirmAllOpen(false); }}>Confirmar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Resumen de gastos */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -176,7 +186,7 @@ const ExpenseManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {mockExpenses.filter(expense => expense.is_active).length}
+                {expenses.filter(e => e.is_recurring).length}
               </div>
               <p className="text-xs text-muted-foreground">
                 Gastos recurrentes
@@ -203,7 +213,7 @@ const ExpenseManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockExpenses.map((expense) => (
+              {expenses.map((expense) => (
                 <div 
                   key={expense.id} 
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -217,44 +227,94 @@ const ExpenseManagement = () => {
                       <p className="text-sm text-gray-600">{expense.description}</p>
                       <div className="flex items-center space-x-2 mt-1">
                         {getFrequencyBadge(expense.frequency)}
-                        <Badge variant="outline" className="text-xs">
-                          {expense.category}
-                        </Badge>
-                        {expense.payment_day && (
+                            {expense.category_id && (
+                              <Badge variant="outline" className="text-xs">
+                                {categories.find(c => c.id === expense.category_id)?.name || expense.category_id}
+                              </Badge>
+                            )}
+                            {expense.recurring_day && (
                           <Badge variant="secondary" className="text-xs">
-                            Día {expense.payment_day}
+                              Día {expense.recurring_day}
                           </Badge>
+                        )}
+                        {isExpensePaid(expense) && (
+                          <Badge className="text-xs bg-green-100 text-green-800">Pagado</Badge>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-semibold text-red-600">
-                      -{formatCurrency(expense.amount)}
+                          -{formatCurrency(expense.amount)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      por {expense.frequency === 'monthly' ? 'mes' : 
-                           expense.frequency === 'weekly' ? 'semana' : 
-                           expense.frequency === 'daily' ? 'día' : 'año'}
+                          por {(expense.frequency || 'monthly') === 'monthly' ? 'mes' : 
+                               (expense.frequency || 'monthly') === 'weekly' ? 'semana' : 
+                               (expense.frequency || 'monthly') === 'daily' ? 'día' : 'año'}
                     </div>
+                    {!isExpensePaid(expense) && Array.isArray(expense.tags) && expense.tags.includes('recurrence-instance') && (
+                      <div className="mt-2">
+                        <Button size="sm" variant="outline" onClick={() => markExpensePaid(expense.id)}>Marcar pagado</Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+
+              {!loading && expenses.length === 0 && (
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No hay gastos registrados</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Agrega tu primer gasto para comenzar a realizar seguimiento
+                  </p>
+                  <Button onClick={() => setShowAddForm(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Agregar Primer Gasto
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Estado beta */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Funcionalidad Beta:</strong> Esta función está en desarrollo. 
-            Los datos mostrados son ejemplos para demostración. La funcionalidad completa 
-            incluirá formularios para agregar/editar gastos y sincronización con la base de datos.
-          </AlertDescription>
-        </Alert>
+        {/* Edit pending inline modal */}
+        {editingPending && (
+          <div className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-50">
+            <div className="bg-background border rounded-lg p-4 w-full max-w-md space-y-3">
+              <h3 className="text-lg font-semibold">Editar gasto recurrente</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-muted-foreground">Monto</label>
+                  <input className="w-full border rounded px-2 py-1" type="number" step="0.01" value={editingPending.amount} onChange={e => setEditingPending(prev => prev && ({ ...prev, amount: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Fecha</label>
+                  <input className="w-full border rounded px-2 py-1" type="date" value={editingPending.date} onChange={e => setEditingPending(prev => prev && ({ ...prev, date: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingPending(null)}>Cancelar</Button>
+                <Button onClick={() => { confirmRecurringForMonth(editingPending.templateId, { amount: Number(editingPending.amount), date: editingPending.date }); setEditingPending(null); }}>Confirmar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form overlay */}
+        {showAddForm && (
+          <div className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-50">
+            <div className="max-w-2xl w-full">
+              <AddExpenseForm onSuccess={() => setShowAddForm(false)} />
+              <div className="flex justify-end mt-2">
+                <Button variant="outline" onClick={() => setShowAddForm(false)}>Cerrar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* */}
       </div>
-    </Layout>
   );
 };
 

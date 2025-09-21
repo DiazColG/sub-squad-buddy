@@ -1,293 +1,133 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
-import type { Income, CreateIncomeData } from '@/types/personalFinance';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import type { Database } from '@/integrations/supabase/types';
 
-// Temporary interface for update data
-interface UpdateIncomeData {
-  name?: string;
-  description?: string;
-  amount?: number;
-  frequency?: 'once' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
-  start_date?: string;
-  end_date?: string;
-  payment_day?: number;
-  is_active?: boolean;
-  category_id?: string;
-  tags?: string[];
-  notes?: string;
-}
+export type IncomeRow = Database['public']['Tables']['incomes']['Row'];
+export type CreateIncome = Database['public']['Tables']['incomes']['Insert'];
+export type UpdateIncome = Database['public']['Tables']['incomes']['Update'];
 
-export const useIncomes = () => {
-  const [incomes, setIncomes] = useState<Income[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function useIncomes() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const [incomes, setIncomes] = useState<IncomeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const monthKey = (d: Date | string) => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
 
-  // Fetch all incomes for the current user
   const fetchIncomes = useCallback(async () => {
     if (!user) return;
-
+    setLoading(true);
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Use direct SQL query as a workaround for type issues
       const { data, error } = await supabase
-        .rpc('get_user_incomes', { user_id_param: user.id });
+        .from('incomes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        // Fallback to direct table query
-        const { data: directData, error: directError } = await (supabase as any)
-          .from('incomes')
-          .select(`
-            *,
-            category:financial_categories(*)
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (directError) throw directError;
-
-        // Calculate monthly amount for each income
-        const incomesWithMonthlyAmount = directData?.map((income: any) => ({
-          ...income,
-          monthly_amount: calculateMonthlyAmount(income.amount, income.frequency)
-        })) || [];
-
-        setIncomes(incomesWithMonthlyAmount);
-        return;
-      }
-
-      // Calculate monthly amount for each income
-      const incomesWithMonthlyAmount = data?.map((income: any) => ({
-        ...income,
-        monthly_amount: calculateMonthlyAmount(income.amount, income.frequency)
-      })) || [];
-
-      setIncomes(incomesWithMonthlyAmount);
+      if (error) throw error;
+      setIncomes((data as IncomeRow[]) || []);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar ingresos';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      console.error('Error fetching incomes:', err);
+      toast.error('Error al cargar ingresos');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [user, toast]);
+  }, [user]);
 
-  // Create a new income
-  const createIncome = async (incomeData: CreateIncomeData) => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "Debes estar autenticado para crear ingresos",
-        variant: "destructive",
-      });
-      return null;
-    }
-
+  const addIncome = async (payload: Omit<CreateIncome, 'user_id'>) => {
+    if (!user) return undefined;
     try {
-      setError(null);
-
+      const insertData: CreateIncome = { ...payload, user_id: user.id };
       const { data, error } = await supabase
         .from('incomes')
-        .insert([
-          {
-            ...incomeData,
-            user_id: user.id,
-          }
-        ])
-        .select(`
-          *,
-          category:financial_categories(*)
-        `)
+        .insert([insertData])
+        .select()
         .single();
-
       if (error) throw error;
-
-      const newIncome = {
-        ...data,
-        monthly_amount: calculateMonthlyAmount(data.amount, data.frequency)
-      };
-
-      setIncomes(prev => [newIncome, ...prev]);
-      
-      toast({
-        title: "¡Éxito!",
-        description: "Ingreso creado correctamente",
-      });
-
-      return newIncome;
+      const created = data as IncomeRow;
+      setIncomes(prev => [created, ...prev]);
+      toast.success('Ingreso agregado');
+      return created;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear ingreso';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return null;
+      console.error('Error adding income:', err);
+      toast.error('Error al agregar ingreso');
+      return undefined;
     }
   };
 
-  // Update an existing income
-  const updateIncome = async (id: string, incomeData: UpdateIncomeData) => {
+  const updateIncome = async (id: string, updates: UpdateIncome) => {
     try {
-      setError(null);
-
       const { data, error } = await supabase
         .from('incomes')
-        .update(incomeData)
+        .update(updates)
         .eq('id', id)
-        .eq('user_id', user?.id)
-        .select(`
-          *,
-          category:financial_categories(*)
-        `)
+        .select()
         .single();
-
       if (error) throw error;
-
-      const updatedIncome = {
-        ...data,
-        monthly_amount: calculateMonthlyAmount(data.amount, data.frequency)
-      };
-
-      setIncomes(prev => prev.map(income => 
-        income.id === id ? updatedIncome : income
-      ));
-      
-      toast({
-        title: "¡Éxito!",
-        description: "Ingreso actualizado correctamente",
-      });
-
-      return updatedIncome;
+      const updated = data as IncomeRow;
+      setIncomes(prev => prev.map(i => (i.id === id ? updated : i)));
+      toast.success('Ingreso actualizado');
+      return updated;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar ingreso';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return null;
+      console.error('Error updating income:', err);
+      toast.error('Error al actualizar ingreso');
+      return undefined;
     }
   };
 
-  // Delete an income
   const deleteIncome = async (id: string) => {
     try {
-      setError(null);
-
-      const { error } = await supabase
-        .from('incomes')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user?.id);
-
+      const { error } = await supabase.from('incomes').delete().eq('id', id);
       if (error) throw error;
-
-      setIncomes(prev => prev.filter(income => income.id !== id));
-      
-      toast({
-        title: "¡Éxito!",
-        description: "Ingreso eliminado correctamente",
-      });
-
+      setIncomes(prev => prev.filter(i => i.id !== id));
+      toast.success('Ingreso eliminado');
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar ingreso';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      console.error('Error deleting income:', err);
+      toast.error('Error al eliminar ingreso');
       return false;
     }
   };
 
-  // Toggle income active status
-  const toggleIncomeStatus = async (id: string, isActive: boolean) => {
-    return updateIncome(id, { is_active: isActive });
+  // Received helpers (UX parity with expenses paid)
+  const isIncomeReceivedForMonth = (i: IncomeRow, ref: Date = new Date()) => {
+    const key = monthKey(ref);
+    const tags = Array.isArray(i.tags) ? i.tags : [];
+    return tags.includes(`income-received:${key}`);
   };
 
-  // Calculate monthly amount based on frequency
-  const calculateMonthlyAmount = (amount: number, frequency: string): number => {
-    switch (frequency) {
-      case 'weekly':
-        return amount * 4.33; // Average weeks per month
-      case 'biweekly':
-        return amount * 2.17; // Average biweeks per month
-      case 'monthly':
-        return amount;
-      case 'quarterly':
-        return amount / 3;
-      case 'yearly':
-        return amount / 12;
-      case 'once':
-        return 0; // One-time income doesn't contribute to monthly
-      default:
-        return amount;
-    }
+  const markIncomeReceivedForMonth = async (id: string, ref: Date = new Date()) => {
+    const income = incomes.find(x => x.id === id);
+    if (!income) return undefined;
+    const key = monthKey(ref);
+    const tags = Array.isArray(income.tags) ? income.tags : [];
+    if (tags.includes(`income-received:${key}`)) return income;
+    const dateStr = new Date().toISOString().slice(0,10);
+    const newTags = [...tags.filter(t => !t.startsWith('received-at:')), `income-received:${key}`, `received-at:${dateStr}`];
+    const updated = await updateIncome(id, { tags: newTags });
+    if (updated) toast.success('Ingreso marcado como recibido');
+    return updated;
   };
 
-  // Calculate total monthly income
-  const getTotalMonthlyIncome = (): number => {
-    return incomes
-      .filter(income => income.is_active)
-      .reduce((total, income) => total + (income.monthly_amount || 0), 0);
+  const clearIncomeReceivedForMonth = async (id: string, ref: Date = new Date()) => {
+    const income = incomes.find(x => x.id === id);
+    if (!income) return undefined;
+    const key = monthKey(ref);
+    const tags = Array.isArray(income.tags) ? income.tags : [];
+    const newTags = tags.filter(t => t !== `income-received:${key}` && !t.startsWith('received-at:'));
+    const updated = await updateIncome(id, { tags: newTags });
+    if (updated) toast.success('Marcado como no recibido');
+    return updated;
   };
 
-  // Get active incomes count
-  const getActiveIncomesCount = (): number => {
-    return incomes.filter(income => income.is_active).length;
-  };
-
-  // Get incomes by category
-  const getIncomesByCategory = () => {
-    const categoryGroups: Record<string, Income[]> = {};
-    
-    incomes.forEach(income => {
-      const categoryName = income.category?.name || 'Sin categoría';
-      if (!categoryGroups[categoryName]) {
-        categoryGroups[categoryName] = [];
-      }
-      categoryGroups[categoryName].push(income);
-    });
-
-    return categoryGroups;
-  };
-
-  // Load incomes when user changes
   useEffect(() => {
-    if (user) {
-      fetchIncomes();
-    } else {
-      setIncomes([]);
-      setIsLoading(false);
-    }
-  }, [user]);
+    fetchIncomes();
+  }, [fetchIncomes]);
 
-  return {
-    incomes,
-    isLoading,
-    error,
-    createIncome,
-    updateIncome,
-    deleteIncome,
-    toggleIncomeStatus,
-    refreshIncomes: fetchIncomes,
-    getTotalMonthlyIncome,
-    getActiveIncomesCount,
-    getIncomesByCategory,
-    calculateMonthlyAmount,
-  };
-};
+  return { incomes, loading, addIncome, updateIncome, deleteIncome, refetch: fetchIncomes, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth };
+}

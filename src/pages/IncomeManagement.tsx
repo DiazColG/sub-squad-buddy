@@ -1,81 +1,153 @@
-import React, { useState } from 'react';
-import { Layout } from '@/components/Layout';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+// removed beta gating
+import { useFinancialCategories } from '@/hooks/useFinancialCategories';
+import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info, Trash2, Pencil, CheckCircle2, Undo2 } from 'lucide-react';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
+import { useIncomes, type UpdateIncome } from '@/hooks/useIncomes';
+import AddIncomeForm from '@/components/AddIncomeForm';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useUserSettings } from '@/hooks/useUserSettings';
-import { useIncomes } from '@/hooks/useIncomes';
-import { AddIncomeForm } from '@/components/AddIncomeForm';
-import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info, Edit, Trash2 } from 'lucide-react';
 
 const IncomeManagement = () => {
-  const { isFeatureEnabled } = useUserSettings();
-  const { incomes, isLoading, getTotalMonthlyIncome, getActiveIncomesCount, deleteIncome } = useIncomes();
+  // removed beta gating usage
+  const { categories, isLoading: categoriesLoading } = useFinancialCategories();
   const [showAddForm, setShowAddForm] = useState(false);
+  const { profile } = useUserProfile();
+  const { formatCurrency: fmt, convertCurrency } = useCurrencyExchange();
+  const userCurrency = profile?.primary_display_currency || 'USD';
 
-  // Manejar eliminación de ingresos
-  const handleDeleteIncome = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este ingreso?')) {
+  const { incomes, loading, updateIncome, deleteIncome, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth } = useIncomes();
+
+  // removed beta gating
+
+  const formatCurrency = (amount: number) => fmt(amount, userCurrency);
+  const getIncomeCurrency = (tags?: string[] | null) => {
+    const t = (tags || []).find(x => x.startsWith('currency:'));
+    return t ? t.replace('currency:', '') : userCurrency;
+  };
+
+  const getFrequencyLabel = (frequency: string) => {
+    const labels = {
+      once: 'Una vez',
+      weekly: 'Semanal',
+      biweekly: 'Quincenal', 
+      monthly: 'Mensual',
+      quarterly: 'Trimestral',
+      yearly: 'Anual'
+    };
+    return labels[frequency as keyof typeof labels] || frequency;
+  };
+
+  const normalizeMonthly = (amount: number, frequency: string) => {
+    switch (frequency) {
+      case 'weekly':
+        return amount * 4.33;
+      case 'biweekly':
+        return amount * 2.17;
+      case 'quarterly':
+        return amount / 3;
+      case 'yearly':
+        return amount / 12;
+      default:
+        return amount;
+    }
+  };
+
+  const monthlyTotal = incomes
+    .filter(income => income.is_active)
+    .reduce((acc, income) => {
+      const incomeCurrency = getIncomeCurrency(income.tags);
+      const monthlyAmount = normalizeMonthly(income.amount, income.frequency);
+      const converted = convertCurrency(monthlyAmount, incomeCurrency, userCurrency);
+      return acc + converted;
+    }, 0);
+
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterFrequency, setFilterFrequency] = useState<string>('all');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; amount: string; frequency: string; start_date: string; category_id: string; currency: string; description: string; is_active: boolean; payment_day: string | number | null; } | null>(null);
+  const [showConverted, setShowConverted] = useState(false);
+
+  const filteredIncomes = useMemo(() => {
+    return incomes.filter(i => {
+      if (filterStatus !== 'all') {
+        if (filterStatus === 'active' && !i.is_active) return false;
+        if (filterStatus === 'inactive' && i.is_active) return false;
+      }
+      if (filterCategory !== 'all' && i.category_id !== filterCategory) return false;
+      if (filterFrequency !== 'all' && i.frequency !== filterFrequency) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!(i.name?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))) return false;
+      }
+      return true;
+    });
+  }, [incomes, filterStatus, filterCategory, filterFrequency, search]);
+
+  const handleToggleActive = async (id: string, current: boolean) => {
+    await updateIncome(id, { is_active: !current } as UpdateIncome);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('¿Eliminar este ingreso?')) {
       await deleteIncome(id);
     }
   };
 
-  // Formatear frecuencia para mostrar
-  const formatFrequency = (frequency: string) => {
-    const frequencies: Record<string, string> = {
-      'once': 'Una vez',
-      'weekly': 'Semanal',
-      'biweekly': 'Quincenal', 
-      'monthly': 'Mensual',
-      'quarterly': 'Trimestral',
-      'yearly': 'Anual'
-    };
-    return frequencies[frequency] || frequency;
+  const handleMarkReceived = async (id: string) => {
+    await markIncomeReceivedForMonth(id);
   };
 
-  // Verificar si la feature está habilitada
-  if (!isFeatureEnabled('personal_finance')) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Esta funcionalidad está disponible en el programa beta. 
-              Ve a Settings para activarla.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Layout>
-    );
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+  const handleUndoReceived = async (id: string) => {
+    await clearIncomeReceivedForMonth(id);
   };
 
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6 space-y-6">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Cargando ingresos...</p>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const openEdit = (income: { id: string; name: string; amount: number; frequency: string; start_date: string; category_id: string | null; description: string | null; is_active: boolean; payment_day: number | null; tags?: string[] | null; }) => {
+    setEditId(income.id);
+    setEditForm({
+      name: income.name || '',
+      amount: String(income.amount ?? ''),
+      frequency: income.frequency || 'monthly',
+      start_date: income.start_date || new Date().toISOString().slice(0,10),
+  category_id: income.category_id || 'none',
+      currency: getIncomeCurrency(income.tags),
+      description: income.description || '',
+      is_active: Boolean(income.is_active),
+      payment_day: income.payment_day ? String(income.payment_day) : ''
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editId || !editForm) return;
+    const updates: UpdateIncome = {
+      name: editForm.name,
+      amount: Number(editForm.amount),
+      frequency: editForm.frequency as UpdateIncome['frequency'],
+      start_date: editForm.start_date,
+  category_id: editForm.category_id === 'none' ? null : editForm.category_id,
+      description: editForm.description || null,
+      is_active: editForm.is_active,
+      payment_day: editForm.payment_day ? Number(editForm.payment_day) : null,
+      tags: [`currency:${editForm.currency}`],
+    } as UpdateIncome;
+    await updateIncome(editId, updates);
+    setEditOpen(false);
+    setEditId(null);
+    setEditForm(null);
+  };
 
   return (
-    <Layout>
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -83,7 +155,6 @@ const IncomeManagement = () => {
             <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
               <DollarSign className="h-6 w-6 text-green-600" />
               Gestión de Ingresos
-              <Badge variant="secondary" className="text-xs">BETA</Badge>
             </h1>
             <p className="text-muted-foreground">
               Gestiona y controla todos tus ingresos de manera organizada
@@ -94,19 +165,6 @@ const IncomeManagement = () => {
             Agregar Ingreso
           </Button>
         </div>
-
-        {/* Dialog para agregar ingreso */}
-        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Agregar Nuevo Ingreso</DialogTitle>
-            </DialogHeader>
-            <AddIncomeForm 
-              onSuccess={() => setShowAddForm(false)}
-              onCancel={() => setShowAddForm(false)}
-            />
-          </DialogContent>
-        </Dialog>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -119,7 +177,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(getTotalMonthlyIncome())}
+                {formatCurrency(monthlyTotal)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Total estimado mensual
@@ -136,7 +194,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {getActiveIncomesCount()}
+                {incomes.filter(i => i.is_active).length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Ingresos configurados
@@ -153,7 +211,7 @@ const IncomeManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(getTotalMonthlyIncome() / 4.33)}
+                {formatCurrency((monthlyTotal || 0) / 4.33)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Estimado semanal
@@ -172,99 +230,223 @@ const IncomeManagement = () => {
                   Lista de todas tus fuentes de ingresos configuradas
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filtros
-              </Button>
+              <div className="flex items-center gap-2">
+                <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
+                <Select value={filterCategory} onValueChange={v => setFilterCategory(v)}>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Categoría" /></SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="all">Todas</SelectItem>
+                    {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterStatus} onValueChange={v => setFilterStatus(v as 'all' | 'active' | 'inactive')}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Activos</SelectItem>
+                    <SelectItem value="inactive">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterFrequency} onValueChange={v => setFilterFrequency(v)}>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Frecuencia" /></SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="once">Una vez</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="biweekly">Quincenal</SelectItem>
+                    <SelectItem value="monthly">Mensual</SelectItem>
+                    <SelectItem value="quarterly">Trimestral</SelectItem>
+                    <SelectItem value="yearly">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2 pl-2">
+                  <Checkbox id="toggle-convert" checked={showConverted} onCheckedChange={v => setShowConverted(Boolean(v))} />
+                  <label htmlFor="toggle-convert" className="text-xs text-muted-foreground">Ver en {userCurrency}</label>
+                </div>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {incomes.length === 0 ? (
-                <div className="text-center py-12">
-                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                    No tienes ingresos registrados
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Comienza agregando tu primer ingreso para empezar a gestionar tus finanzas
-                  </p>
-                  <Button onClick={() => setShowAddForm(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Agregar Mi Primer Ingreso
-                  </Button>
-                </div>
-              ) : (
-                incomes.map((income) => (
-                  <div 
-                    key={income.id} 
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <DollarSign className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{income.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {income.description || 'Sin descripción'}
-                          </p>
-                          <div className="flex items-center gap-4 mt-1">
-                            <Badge 
-                              variant={income.is_active ? "default" : "secondary"} 
-                              className="text-xs"
-                            >
-                              {income.is_active ? 'Activo' : 'Inactivo'}
+              {filteredIncomes.map((income) => (
+                <div 
+                  key={income.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{income.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {income.description}
+                        </p>
+                        <div className="flex items-center gap-4 mt-1">
+                          {income.category_id && (
+                            <Badge variant="outline" className="text-xs">
+                              {categories.find(c => c.id === income.category_id)?.name || income.category_id}
                             </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {getFrequencyLabel(income.frequency)}
+                          </span>
+                          {income.payment_day && (
                             <span className="text-xs text-muted-foreground">
-                              {formatFrequency(income.frequency)}
+                              Día {income.payment_day}
                             </span>
-                            {income.payment_day && (
-                              <span className="text-xs text-muted-foreground">
-                                Día {income.payment_day}
-                              </span>
-                            )}
-                          </div>
+                          )}
+                          {isIncomeReceivedForMonth(income) ? (
+                            <Badge className="text-xs bg-green-600">Recibido este mes</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Pendiente mes</Badge>
+                          )}
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="font-semibold text-green-600">
-                          {formatCurrency(income.amount)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatFrequency(income.frequency)}
-                        </div>
-                        {income.monthly_amount && (
-                          <div className="text-xs text-muted-foreground">
-                            ~{formatCurrency(income.monthly_amount)}/mes
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => income.id && handleDeleteIncome(income.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   </div>
-                ))
+                  <div className="text-right">
+                    <div className="text-lg font-semibold text-green-600">
+                      {(() => {
+                        const incomeCcy = getIncomeCurrency(income.tags);
+                        const amountToShow = showConverted ? convertCurrency(income.amount, incomeCcy, userCurrency) : income.amount;
+                        const ccy = showConverted ? userCurrency : incomeCcy;
+                        return fmt(amountToShow, ccy);
+                      })()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {getFrequencyLabel(income.frequency)}
+                    </div>
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button size="icon" variant="ghost" title={income.is_active ? 'Desactivar' : 'Activar'} onClick={() => handleToggleActive(income.id, income.is_active)}>
+                      <Calendar className="h-4 w-4" />
+                    </Button>
+                    {isIncomeReceivedForMonth(income) ? (
+                      <Button size="icon" variant="ghost" title="Desmarcar recibido" onClick={() => handleUndoReceived(income.id)}>
+                        <Undo2 className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button size="icon" variant="ghost" title="Marcar recibido" onClick={() => handleMarkReceived(income.id)}>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(income)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" title="Eliminar" onClick={() => handleDelete(income.id)}>
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {!loading && filteredIncomes.length === 0 && (
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No hay ingresos configurados</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Comienza agregando tu primer ingreso para llevar un mejor control
+                  </p>
+                  <Button onClick={() => setShowAddForm(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Agregar Primer Ingreso
+                  </Button>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
+
+        {showAddForm && (
+          <div className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-50">
+            <div className="max-w-2xl w-full">
+              <AddIncomeForm onSuccess={() => setShowAddForm(false)} />
+              <div className="flex justify-end mt-2">
+                <Button variant="outline" onClick={() => setShowAddForm(false)}>Cerrar</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Editar ingreso</DialogTitle>
+            </DialogHeader>
+            {editForm && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm">Nombre</label>
+                    <Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Monto</label>
+                    <Input type="number" step="0.01" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Moneda</label>
+                    <Select value={editForm.currency} onValueChange={v => setEditForm({ ...editForm, currency: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-background border shadow-lg">
+                        {['USD','EUR','ARS','GBP','CAD','AUD','JPY','CHF','SEK','NOK','DKK','BRL','MXN'].map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Frecuencia</label>
+                    <Select value={editForm.frequency} onValueChange={v => setEditForm({ ...editForm, frequency: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-background border shadow-lg">
+                        <SelectItem value="once">Una vez</SelectItem>
+                        <SelectItem value="weekly">Semanal</SelectItem>
+                        <SelectItem value="biweekly">Quincenal</SelectItem>
+                        <SelectItem value="monthly">Mensual</SelectItem>
+                        <SelectItem value="quarterly">Trimestral</SelectItem>
+                        <SelectItem value="yearly">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Fecha de inicio</label>
+                    <Input type="date" value={editForm.start_date} onChange={e => setEditForm({ ...editForm, start_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Categoría</label>
+                    <Select value={editForm.category_id} onValueChange={v => setEditForm({ ...editForm, category_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                      <SelectContent className="bg-background border shadow-lg">
+                        <SelectItem value="none">Sin categoría</SelectItem>
+                        {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm">Día de pago</label>
+                    <Input type="number" min={1} max={31} value={editForm.payment_day as string} onChange={e => setEditForm({ ...editForm, payment_day: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm">Descripción</label>
+                    <Input value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
+                  </div>
+                  <div className="flex items-center gap-2 md:col-span-2">
+                    <Checkbox id="edit-active" checked={editForm.is_active} onCheckedChange={v => setEditForm({ ...editForm, is_active: Boolean(v) })} />
+                    <label htmlFor="edit-active" className="text-sm">Activo</label>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+                  <Button onClick={saveEdit}>Guardar cambios</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
-    </Layout>
   );
 };
 

@@ -1,22 +1,21 @@
 import { 
   LayoutDashboard, 
   CreditCard, 
-  Users, 
   Settings, 
   BarChart3,
   Bell,
   MessageSquare,
   Package,
-  Rocket,
   Home,
   Calculator,
   DollarSign,
   TrendingUp,
   Target,
-  PiggyBank
+  PiggyBank,
+  BookOpen
+  , Flame
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useUserSettings } from "@/hooks/useUserSettings";
 
 import {
   Sidebar,
@@ -32,35 +31,35 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Ingresos", url: "/finance/income", icon: TrendingUp },
+  { title: "Gastos", url: "/finance/expenses", icon: Calculator },
   { title: "Suscripciones", url: "/subscriptions", icon: Package },
-  { title: "Servicios+Vivienda", url: "/housing-services", icon: Home },
+  { title: "Servicios del Hogar", url: "/housing-services", icon: Home },
   { title: "Cuotas", url: "/installments", icon: Calculator },
   { title: "Tarjetas", url: "/cards", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },
-  { title: "Feedback", url: "/feedback", icon: MessageSquare },
-  { title: "Próximamente", url: "/coming-soon", icon: Rocket },
 ];
 
-// New Personal Finance section (beta)
+// Personal Finance section
 const financeNavItems = [
   { title: "Resumen Financiero", url: "/finance", icon: DollarSign },
-  { title: "Ingresos", url: "/finance/income", icon: TrendingUp },
-  { title: "Gastos", url: "/finance/expenses", icon: Calculator },
   { title: "Metas de Ahorro", url: "/finance/goals", icon: Target },
   { title: "Presupuestos", url: "/finance/budgets", icon: PiggyBank },
+  { title: "FIRE", url: "/fire", icon: Flame },
 ];
 
 
 const settingsNavItems = [
   { title: "Configuración", url: "/settings", icon: Settings },
+  { title: "Feedback", url: "/feedback", icon: MessageSquare },
+  { title: "Casos de Uso", url: "/use-cases", icon: BookOpen },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isFeatureEnabled } = useUserSettings();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -84,19 +83,17 @@ export function AppSidebar() {
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate('/dashboard')}
             >
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
-              </div>
+              <img src="/icon-graph.svg" alt="App icon" className="w-8 h-8" />
               <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                Suscrify
+                Compounding
               </span>
             </div>
           ) : (
             <div 
-              className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center mx-auto cursor-pointer hover:opacity-80 transition-opacity"
+              className="w-8 h-8 flex items-center justify-center mx-auto cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate('/dashboard')}
             >
-              <span className="text-white font-bold text-sm">S</span>
+              <img src="/icon-graph.svg" alt="App icon" className="w-6 h-6" />
             </div>
           )}
         </div>
@@ -123,32 +120,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Personal Finance Navigation (Beta) - Only show if enabled */}
-        {isFeatureEnabled('personal_finance') && (
-          <SidebarGroup>
-            <SidebarGroupLabel>
-              💰 Finanzas Personales
-              {!isCollapsed && <span className="ml-1 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">BETA</span>}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {financeNavItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink 
-                        to={item.url} 
-                        className={getNavClassName(item.url)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {!isCollapsed && <span>{item.title}</span>}
-                        </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        {/* Personal Finance Navigation */}
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            💰 Finanzas Personales
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {financeNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      className={getNavClassName(item.url)}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {!isCollapsed && <span>{item.title}</span>}
+                      </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
 
         {/* Settings */}

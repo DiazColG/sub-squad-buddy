@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card as UICard, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -15,10 +15,11 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useHousingServices, HousingService } from '@/hooks/useHousingServices';
-import { useCards } from '@/hooks/useCards';
+import { useCards, type Card as CardModel } from '@/hooks/useCards';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { toast } from 'sonner';
+import { useExpenses } from '@/hooks/useExpenses';
 
 const housingCategories = [
   { value: 'utilities', label: 'Servicios básicos' },
@@ -54,11 +55,13 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
   const { cards, addCard } = useCards();
   const { convertCurrency } = useCurrencyExchange();
   const { profile } = useUserProfile();
+  const { addExpense } = useExpenses();
   const [open, setOpen] = useState(false);
   const [dueDateOpen, setDueDateOpen] = useState(false);
   const [selectedPaymentOption, setSelectedPaymentOption] = useState<string>('');
   const [showNewCardForm, setShowNewCardForm] = useState(false);
   const [saveNewCard, setSaveNewCard] = useState(false);
+  const [reflectInExpenses, setReflectInExpenses] = useState(true);
 
   const [formData, setFormData] = useState<Partial<HousingService>>({
     service_name: '',
@@ -86,7 +89,8 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
     payment_method: 'credit_card'
   });
 
-  const getCardDisplayName = (card: any) => {
+  const getCardDisplayName = (card?: CardModel) => {
+    if (!card) return '';
     return `${card.bank_name} *${card.card_last_digits}`;
   };
 
@@ -174,6 +178,68 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
 
     const result = await addHousingService(serviceData);
     
+    if (result && reflectInExpenses) {
+      const normalizeMonthly = (amount: number, cycle?: string) => {
+        switch (cycle) {
+          case 'annual':
+            return amount / 12;
+          case 'quarterly':
+            return amount / 3;
+          case 'bimonthly':
+            return amount / 2;
+          case 'monthly':
+          default:
+            return amount;
+        }
+      };
+
+      const amountMonthly = normalizeMonthly(serviceData.cost, serviceData.billing_cycle);
+      const day = serviceData.next_due_date ? new Date(serviceData.next_due_date).getDate() : 1;
+      const baseTags = [
+        'recurrent-template',
+        'type:housing-service',
+        'bridge:unified-expenses',
+        `source-cycle:${serviceData.billing_cycle || 'monthly'}`,
+      ];
+      const reminderTag = serviceData.enable_due_alert && serviceData.alert_days_before
+        ? [`reminder-days:${serviceData.alert_days_before}`]
+        : [];
+
+      try {
+        await addExpense({
+          name: serviceData.service_name || 'Servicio del hogar',
+          amount: amountMonthly,
+          frequency: 'monthly',
+          transaction_date: new Date().toISOString().slice(0,10),
+          category_id: null,
+          description: 'Reflejado desde Servicios del Hogar',
+          is_recurring: true,
+          recurring_day: day,
+          card_id: serviceData.card_id || null,
+          currency: serviceData.currency || 'USD',
+          due_date: null,
+          expense_type: null,
+          flexibility_level: null,
+          is_business_expense: null,
+          is_tax_deductible: null,
+          location: null,
+          monthly_amount: amountMonthly,
+          necessity_score: null,
+          notes: null,
+          optimization_potential: null,
+          optimization_tags: null,
+          payment_method: (typeof serviceData.payment_method === 'string' ? serviceData.payment_method : null),
+          receipt_url: null,
+          tags: [...baseTags, ...reminderTag],
+          updated_at: null,
+          created_at: null,
+          vendor_name: null,
+        });
+      } catch (err) {
+        toast.error('No se pudo reflejar en Gastos');
+      }
+    }
+    
     if (result) {
       // Reset form
       setFormData({
@@ -204,6 +270,7 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
       setShowNewCardForm(false);
       setSaveNewCard(false);
       setOpen(false);
+      setReflectInExpenses(true);
       onServiceAdded();
     }
   };
@@ -222,6 +289,10 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex items-center gap-2">
+            <Checkbox id="reflect-expenses" checked={reflectInExpenses} onCheckedChange={(v) => setReflectInExpenses(Boolean(v))} />
+            <Label htmlFor="reflect-expenses">Reflejar también en Gastos</Label>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="service_name">Nombre del Servicio *</Label>
@@ -338,7 +409,7 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
             </Popover>
           </div>
 
-          <Card>
+          <UICard>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <CreditCard className="w-5 h-5" />
@@ -473,9 +544,9 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
                 </div>
               )}
             </CardContent>
-          </Card>
+          </UICard>
 
-          <Card>
+          <UICard>
             <CardHeader>
               <CardTitle className="text-lg">Alertas</CardTitle>
               <CardDescription>Configura recordatorios para tus pagos</CardDescription>
@@ -514,7 +585,7 @@ export const AddHousingServiceForm: React.FC<AddHousingServiceFormProps> = ({ on
                 </div>
               )}
             </CardContent>
-          </Card>
+          </UICard>
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

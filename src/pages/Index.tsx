@@ -33,34 +33,34 @@ const Index = () => {
 
   const features = [
     {
-      icon: CreditCard,
-      title: "Gestión Centralizada",
-      description: "Todas tus suscripciones en un solo lugar, fácil de gestionar y controlar"
+      icon: BarChart3,
+      title: "Crecimiento Compuesto",
+      description: "Proyecta cómo crecen tus ingresos y ahorros con interés compuesto"
     },
     {
-      icon: BarChart3,
-      title: "Análisis Inteligente",
-      description: "Visualiza tus gastos mensuales y anuales con gráficos detallados"
+      icon: CreditCard,
+      title: "Gastos Bajo Control",
+      description: "Centraliza tus gastos recurrentes y evita sorpresas a fin de mes"
     },
     {
       icon: Bell,
-      title: "Alertas Personalizadas",
-      description: "Recibe notificaciones antes de que se renueven tus suscripciones"
+      title: "Recordatorios a Tiempo",
+      description: "Recibe alertas de cobros, ingresos y fechas clave para decidir mejor"
     },
     {
       icon: Shield,
-      title: "Seguridad Total",
-      description: "Tus datos están protegidos con los más altos estándares de seguridad"
-    },
-    {
-      icon: Users,
-      title: "Gestión de Equipos",
-      description: "Administra las suscripciones de tu empresa con roles y permisos"
+      title: "Datos Seguros",
+      description: "Protegemos tu información con buenas prácticas y control de acceso"
     },
     {
       icon: Target,
-      title: "Control de Costos",
-      description: "Mantén el control total sobre tus gastos recurrentes"
+      title: "Metas Claras",
+      description: "Define objetivos de ahorro y monitorea tu avance cada mes"
+    },
+    {
+      icon: Users,
+      title: "Para Vos o tu Equipo",
+      description: "Comparte visibilidad financiera con quien necesites, cuando lo necesites"
     }
   ];
 
@@ -71,11 +71,9 @@ const Index = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
-              </div>
+              <img src="/icon-graph.svg" alt="App icon" className="w-8 h-8" />
               <span className="font-bold text-xl bg-gradient-primary bg-clip-text text-transparent">
-                Suscrify
+                Compounding
               </span>
             </div>
             <div className="flex items-center gap-4">
@@ -94,16 +92,16 @@ const Index = () => {
       <section className="container mx-auto px-6 py-16 text-center">
         <div className="max-w-4xl mx-auto space-y-8">
           <Badge className="bg-primary-light text-primary">
-            🚀 Gestiona tus suscripciones de forma inteligente
+            🚀 Finanzas personales con enfoque en crecimiento compuesto
           </Badge>
           
           <h1 className="text-4xl md:text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Controla todos tus gastos recurrentes
+            Compounding: libertad financiera, paso a paso
           </h1>
           
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Suscrify te ayuda a rastrear, analizar y controlar todas tus suscripciones 
-            en un solo lugar. Perfecto para usuarios individuales y equipos.
+            Organiza ingresos y gastos, proyecta tu ahorro y toma decisiones simples que se acumulan en el tiempo. 
+            Con Compounding, cada pequeño paso suma hacia tu independencia financiera.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -126,7 +124,7 @@ const Index = () => {
       <section className="container mx-auto px-6 py-16 bg-background-subtle">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-foreground mb-4">
-            Todo lo que necesitas para gestionar tus suscripciones
+            Todo lo que necesitas para crecer en orden
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Funciones diseñadas para simplificar el control de tus gastos recurrentes
@@ -158,11 +156,10 @@ const Index = () => {
           <CardContent className="p-12 text-center">
             <div className="max-w-2xl mx-auto space-y-6">
               <h2 className="text-3xl font-bold">
-                ¿Listo para tomar el control de tus suscripciones?
+                ¿Listo para acelerar tu libertad financiera?
               </h2>
               <p className="text-white/90 text-lg">
-                Únete a miles de usuarios que ya están ahorrando tiempo y dinero 
-                con Suscrify. Comienza gratis, sin necesidad de tarjeta de crédito.
+                Da el primer paso hoy. Pequeñas decisiones repetidas, gran diferencia a futuro.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/signup">
@@ -182,15 +179,13 @@ const Index = () => {
         <div className="container mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gradient-primary rounded flex items-center justify-center">
-                <span className="text-white font-bold text-xs">S</span>
-              </div>
+              <img src="/icon-graph.svg" alt="App icon" className="w-6 h-6" />
               <span className="font-semibold bg-gradient-primary bg-clip-text text-transparent">
-                Suscrify
+                Compounding
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 Suscrify. Todos los derechos reservados.
+              © 2025 Compounding. Todos los derechos reservados.
             </p>
           </div>
         </div>

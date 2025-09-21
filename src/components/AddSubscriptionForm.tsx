@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card as UICard, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,16 +13,42 @@ import { es } from "date-fns/locale";
 import { CalendarIcon, Loader2, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCards } from "@/hooks/useCards";
+import { useCards, type Card as CardModel } from "@/hooks/useCards";
+import { useExpenses } from "@/hooks/useExpenses";
+
+type BillingCycle = "Monthly" | "Quarterly" | "Semi-Annually" | "Annually" | "";
+type PaymentMethod = "debit_auto" | "credit_card" | "debit_card" | "transfer" | "other" | "";
+type Currency = "USD" | "EUR" | "ARS" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK";
+
+interface SubscriptionFormState {
+  service_name: string;
+  cost: string;
+  currency: Currency;
+  billing_cycle: BillingCycle;
+  category: string;
+  enable_renewal_alert: boolean;
+  alert_days_before: number;
+  payment_method: PaymentMethod;
+  bank_name: string;
+  card_type: string;
+  card_last_digits: string;
+  card_id: string;
+}
+
+interface SubscriptionSubmitData extends Omit<SubscriptionFormState, 'cost'> {
+  cost: number;
+  next_renewal_date: string;
+}
 
 interface AddSubscriptionFormProps {
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: SubscriptionSubmitData) => Promise<void>;
   loading?: boolean;
 }
 
 const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormProps) => {
   const { cards } = useCards();
-  const [formData, setFormData] = useState({
+  const { addExpense } = useExpenses();
+  const [formData, setFormData] = useState<SubscriptionFormState>({
     service_name: "",
     cost: "",
     currency: "USD",
@@ -37,6 +63,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     card_id: ""
   });
   const [renewalDate, setRenewalDate] = useState<Date>();
+  const [reflectInExpenses, setReflectInExpenses] = useState(true);
 
   const currencies = [
     "USD", "EUR", "ARS", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "DKK"
@@ -50,12 +77,12 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
   ];
 
   const categories = [
-    "Entertainment",
+    "Entretenimiento",
     "Software", 
-    "Productivity",
-    "Health",
-    "Business Operations",
-    "Other"
+    "Productividad",
+    "Salud",
+    "Negocios",
+    "Otros"
   ];
 
   const alertOptions = [
@@ -93,7 +120,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     { value: "other", label: "Otro" }
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = <K extends keyof SubscriptionFormState>(field: K, value: SubscriptionFormState[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -123,7 +150,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     }
   };
 
-  const getCardDisplayName = (card: any) => {
+  const getCardDisplayName = (card: CardModel) => {
     return `**** ${card.card_last_digits} - ${card.bank_name} (${card.card_type === 'credit' ? 'Crédito' : 'Débito'})`;
   };
 
@@ -142,6 +169,51 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
     };
 
     await onSubmit(subscriptionData);
+
+    if (reflectInExpenses) {
+      const day = renewalDate.getDate();
+      const normalizeMonthly = (amount: number, cycle: string) => {
+        if (cycle === 'Annually') return amount / 12;
+        if (cycle === 'Quarterly') return amount / 3;
+        if (cycle === 'Semi-Annually') return amount / 6;
+        // Monthly by default
+        return amount;
+      };
+      const amountMonthly = normalizeMonthly(parseFloat(formData.cost), formData.billing_cycle);
+      try {
+        await addExpense({
+          name: formData.service_name,
+          amount: amountMonthly,
+          frequency: 'monthly',
+          transaction_date: new Date().toISOString().slice(0,10),
+          category_id: null,
+          description: 'Reflejado desde Suscripciones',
+          is_recurring: true,
+          recurring_day: day,
+          card_id: formData.card_id || null,
+          currency: formData.currency || 'USD',
+          due_date: null,
+          expense_type: null,
+          flexibility_level: null,
+          is_business_expense: null,
+          is_tax_deductible: null,
+          location: null,
+          monthly_amount: amountMonthly,
+          necessity_score: null,
+          notes: null,
+          optimization_potential: null,
+          optimization_tags: null,
+          payment_method: formData.payment_method || null,
+          receipt_url: null,
+          tags: ['recurrent-template','type:subscription','bridge:unified-expenses', `source-cycle:${formData.billing_cycle || 'Monthly'}`],
+          updated_at: null,
+          created_at: null,
+          vendor_name: null,
+        });
+      } catch (err) {
+        toast.error('No se pudo reflejar en Gastos');
+      }
+    }
     
     // Reset form
     setFormData({
@@ -159,10 +231,11 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       card_id: ""
     });
     setRenewalDate(undefined);
+    setReflectInExpenses(true);
   };
 
   return (
-    <Card>
+    <UICard>
       <CardHeader>
         <CardTitle>Agregar Nueva Suscripción</CardTitle>
         <CardDescription>
@@ -171,6 +244,10 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Checkbox id="reflect" checked={reflectInExpenses} onCheckedChange={v => setReflectInExpenses(Boolean(v))} />
+            <Label htmlFor="reflect">Reflejar también en Gastos</Label>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="service_name">Nombre del Servicio</Label>
@@ -214,7 +291,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
 
             <div className="space-y-2">
               <Label htmlFor="currency">Moneda</Label>
-              <Select value={formData.currency} onValueChange={(value) => handleInputChange("currency", value)}>
+              <Select value={formData.currency} onValueChange={(value) => handleInputChange("currency", value as Currency)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -230,7 +307,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
 
             <div className="space-y-2">
               <Label htmlFor="billing_cycle">Ciclo de Facturación</Label>
-              <Select value={formData.billing_cycle} onValueChange={(value) => handleInputChange("billing_cycle", value)}>
+              <Select value={formData.billing_cycle} onValueChange={(value) => handleInputChange("billing_cycle", value as BillingCycle)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona el ciclo" />
                 </SelectTrigger>
@@ -304,7 +381,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
             
             <div className="space-y-2">
               <Label htmlFor="payment_method">Método de Pago</Label>
-              <Select value={formData.payment_method} onValueChange={(value) => handleInputChange("payment_method", value)}>
+              <Select value={formData.payment_method} onValueChange={(value) => handleInputChange("payment_method", value as PaymentMethod)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un método de pago" />
                 </SelectTrigger>
@@ -379,7 +456,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
               <Checkbox 
                 id="enable_alerts"
                 checked={formData.enable_renewal_alert}
-                onCheckedChange={(checked) => handleInputChange("enable_renewal_alert", checked)}
+                onCheckedChange={(checked) => handleInputChange("enable_renewal_alert", Boolean(checked))}
               />
               <Label htmlFor="enable_alerts">Habilitar alertas de renovación</Label>
             </div>
@@ -418,7 +495,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
           </Button>
         </form>
       </CardContent>
-    </Card>
+    </UICard>
   );
 };
 

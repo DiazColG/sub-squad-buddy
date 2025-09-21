@@ -20,7 +20,7 @@ export interface BetaFeatureFlag {
 const DEFAULT_SETTINGS: UserSettings = {
   user_id: '',
   beta_features_enabled: false,
-  personal_finance_enabled: false,
+  personal_finance_enabled: true,
   notifications_enabled: true,
   theme: 'system'
 };
@@ -33,11 +33,6 @@ export function useUserSettings() {
 
   // Beta features disponibles
   const availableBetaFeatures: BetaFeatureFlag[] = [
-    {
-      feature_key: 'personal_finance',
-      enabled: false,
-      description: 'Módulo completo de finanzas personales con gestión de ingresos, gastos, metas y presupuestos'
-    },
     {
       feature_key: 'advanced_analytics',
       enabled: false,
@@ -146,13 +141,11 @@ export function useUserSettings() {
   // Activar/desactivar feature específica
   const toggleFeature = async (featureKey: string, enabled: boolean) => {
     if (featureKey === 'personal_finance') {
+      // Keep for compatibility, but personal finance is always enabled by default
       const result = await updateSettings({ personal_finance_enabled: enabled });
-      
-      // Si se está activando por primera vez, inicializar datos
       if (enabled && !settings.personal_finance_enabled) {
         await initializePersonalFinance();
       }
-      
       return result;
     }
     // Aquí se pueden agregar más features en el futuro
@@ -162,13 +155,9 @@ export function useUserSettings() {
   // Verificar si una feature está habilitada
   const isFeatureEnabled = (featureKey: string): boolean => {
     if (!settings) return false;
-    
-    // Si beta features no está habilitado, ninguna feature beta funciona
-    if (!settings.beta_features_enabled) return false;
-
     switch (featureKey) {
       case 'personal_finance':
-        return settings.personal_finance_enabled;
+        return true; // Always enabled for all users
       default:
         return false;
     }

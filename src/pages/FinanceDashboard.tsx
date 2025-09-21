@@ -1,11 +1,12 @@
 import React from 'react';
-import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { useUserSettings } from '@/hooks/useUserSettings';
+// removed beta gating
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useNavigate } from 'react-router-dom';
 import { 
   DollarSign, 
@@ -20,27 +21,17 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
+import SmartStart from '@/components/SmartStart';
 
 const FinanceDashboard = () => {
-  const { isFeatureEnabled } = useUserSettings();
+  // Removed user settings for beta gating
   const navigate = useNavigate();
+  const { profile } = useUserProfile();
+  const { formatCurrency: fmt } = useCurrencyExchange();
+  const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Verificar si la feature está habilitada
-  if (!isFeatureEnabled('personal_finance')) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Esta funcionalidad está disponible en el programa beta. 
-              Activa las funciones beta en Configuración para acceder.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Layout>
-    );
-  }
+  // Removed beta gating check
 
   // Mock data consolidado de todos los módulos
   const financialData = {
@@ -74,12 +65,7 @@ const FinanceDashboard = () => {
   const netIncome = financialData.income.monthly - financialData.expenses.monthly;
   const savingsRate = (netIncome / financialData.income.monthly) * 100;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 
   const upcomingEvents = [
     { type: 'expense', name: 'Alquiler', amount: 1200, date: '2024-10-05', category: 'Vivienda' },
@@ -120,7 +106,6 @@ const FinanceDashboard = () => {
   ];
 
   return (
-    <Layout>
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -128,12 +113,13 @@ const FinanceDashboard = () => {
             <h1 className="text-3xl font-bold text-gray-900">💰 Dashboard Financiero</h1>
             <p className="text-gray-600 mt-1">Resumen completo de tu situación financiera</p>
           </div>
-          <Badge className="bg-blue-100 text-blue-600">
-            BETA
-          </Badge>
+          {/* Removed beta label */}
         </div>
 
-        {/* Métricas principales */}
+  {/* Smart Start Onboarding */}
+  <SmartStart />
+
+  {/* Métricas principales */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -387,17 +373,8 @@ const FinanceDashboard = () => {
         </Card>
 
         {/* Estado beta */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Dashboard Beta:</strong> Esta es una vista consolidada de todas las funciones 
-            de finanzas personales. Los datos mostrados son ejemplos para demostración. 
-            La funcionalidad completa incluirá gráficos interactivos, reportes detallados 
-            y sincronización en tiempo real con todos los módulos.
-          </AlertDescription>
-        </Alert>
+        {/* Removed beta status alert */}
       </div>
-    </Layout>
   );
 };
 

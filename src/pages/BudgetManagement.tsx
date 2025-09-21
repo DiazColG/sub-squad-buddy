@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { useUserSettings } from '@/hooks/useUserSettings';
+// removed beta gating
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { PiggyBank, Plus, DollarSign, TrendingDown, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
 const BudgetManagement = () => {
-  const { isFeatureEnabled } = useUserSettings();
+  // removed beta gating usage
   const [showAddForm, setShowAddForm] = useState(false);
+  const { profile } = useUserProfile();
+  const { formatCurrency: fmt } = useCurrencyExchange();
+  const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
   const mockBudgets = [
@@ -122,31 +126,11 @@ const BudgetManagement = () => {
     }
   ];
 
-  // Verificar si la feature está habilitada
-  if (!isFeatureEnabled('personal_finance')) {
-    return (
-      <Layout>
-        <div className="container mx-auto p-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Esta funcionalidad está disponible en el programa beta. 
-              Activa las funciones beta en Configuración para acceder.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Layout>
-    );
-  }
+  // removed beta gating
 
   const activeBudget = mockBudgets.find(budget => budget.is_active);
   
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-AR', {
@@ -169,7 +153,6 @@ const BudgetManagement = () => {
 
   if (!activeBudget) {
     return (
-      <Layout>
         <div className="container mx-auto p-6 space-y-6">
           <div className="text-center py-12">
             <PiggyBank className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -181,7 +164,6 @@ const BudgetManagement = () => {
             </Button>
           </div>
         </div>
-      </Layout>
     );
   }
 
@@ -191,7 +173,6 @@ const BudgetManagement = () => {
   const overBudgetCategories = activeBudget.categories.filter(cat => cat.spent_amount > cat.budgeted_amount);
 
   return (
-    <Layout>
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -409,18 +390,8 @@ const BudgetManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Estado beta */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Funcionalidad Beta:</strong> Esta función está en desarrollo. 
-            Los datos mostrados son ejemplos para demostración. La funcionalidad completa 
-            incluirá formularios para crear/editar presupuestos, categorías personalizadas 
-            y sincronización automática con gastos reales.
-          </AlertDescription>
-        </Alert>
+        {/* */}
       </div>
-    </Layout>
   );
 };
 

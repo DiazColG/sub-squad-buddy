@@ -13,7 +13,6 @@ import { Installments } from "./pages/Installments";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
 import Feedback from "./pages/Feedback";
-import ComingSoon from "./pages/ComingSoon";
 import Settings from "./pages/Settings";
 import Cards from "./pages/Cards";
 import IncomeManagement from "./pages/IncomeManagement";
@@ -21,6 +20,8 @@ import ExpenseManagement from "./pages/ExpenseManagement";
 import SavingsGoals from "./pages/SavingsGoals";
 import BudgetManagement from "./pages/BudgetManagement";
 import FinanceDashboard from "./pages/FinanceDashboard";
+import UseCases from "./pages/UseCases";
+import FIRE from "./pages/FIRE";
 
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
@@ -87,13 +88,6 @@ const App = () => (
               </Layout>
             </ProtectedRoute>
           } />
-          <Route path="/coming-soon" element={
-            <ProtectedRoute>
-              <Layout>
-                <ComingSoon />
-              </Layout>
-            </ProtectedRoute>
-          } />
           <Route path="/settings" element={
             <ProtectedRoute>
               <Layout>
@@ -142,6 +136,20 @@ const App = () => (
             <ProtectedRoute>
               <Layout>
                 <BudgetManagement />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/fire" element={
+            <ProtectedRoute>
+              <Layout>
+                <FIRE />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/use-cases" element={
+            <ProtectedRoute>
+              <Layout>
+                <UseCases />
               </Layout>
             </ProtectedRoute>
           } />

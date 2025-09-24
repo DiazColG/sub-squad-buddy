@@ -8,7 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { useIncomes, CreateIncome } from '@/hooks/useIncomes';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useFinancialCategories } from '@/hooks/useFinancialCategories';
 
 type Props = {
 	onSuccess?: () => void;
@@ -25,8 +24,6 @@ const frequencyOptions = [
 
 export default function AddIncomeForm({ onSuccess }: Props) {
 	const { addIncome } = useIncomes();
-	const { getIncomeCategories } = useFinancialCategories();
-	const categories = getIncomeCategories();
   const { profile } = useUserProfile();
   const defaultCurrency = profile?.primary_display_currency || 'USD';
 
@@ -35,7 +32,6 @@ export default function AddIncomeForm({ onSuccess }: Props) {
 		amount: '',
 		frequency: 'monthly',
 		start_date: new Date().toISOString().slice(0, 10),
-		category_id: 'none' as string,
 			currency: defaultCurrency as string,
 		description: '',
 		is_active: true,
@@ -58,7 +54,6 @@ export default function AddIncomeForm({ onSuccess }: Props) {
 				amount: Number(form.amount),
 				frequency: form.frequency as CreateIncome['frequency'],
 				start_date: form.start_date,
-						category_id: form.category_id === 'none' ? null : (form.category_id as string),
 				description: form.description || null,
 				is_active: form.is_active,
 				payment_day: form.payment_day ? Number(form.payment_day) : null,
@@ -74,7 +69,7 @@ export default function AddIncomeForm({ onSuccess }: Props) {
 				onSuccess?.();
 				setForm({
 					name: '', amount: '', frequency: 'monthly', start_date: new Date().toISOString().slice(0, 10),
-					category_id: 'none', currency: defaultCurrency, description: '', is_active: true, payment_day: ''
+					currency: defaultCurrency, description: '', is_active: true, payment_day: ''
 				});
 			}
 		} finally {
@@ -122,16 +117,7 @@ export default function AddIncomeForm({ onSuccess }: Props) {
 							<Label>Fecha de inicio</Label>
 							<Input type="date" value={form.start_date} onChange={e => onChange('start_date', e.target.value)} />
 						</div>
-						<div className="space-y-2">
-							<Label>Categoría</Label>
-							<Select value={form.category_id} onValueChange={v => onChange('category_id', v)}>
-								<SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-								<SelectContent className="bg-background border shadow-lg">
-									<SelectItem value="none">Sin categoría</SelectItem>
-									{categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
-								</SelectContent>
-							</Select>
-						</div>
+						{/* categoría eliminada */}
 						<div className="space-y-2">
 							<Label>Día de pago (opcional)</Label>
 							<Input type="number" min={1} max={31} value={form.payment_day as string} onChange={e => onChange('payment_day', e.target.value)} />

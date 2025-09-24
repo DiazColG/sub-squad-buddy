@@ -60,7 +60,7 @@ export function useIncomes() {
     }
   };
 
-  const updateIncome = async (id: string, updates: UpdateIncome) => {
+  const updateIncome = useCallback(async (id: string, updates: UpdateIncome) => {
     try {
       const { data, error } = await supabase
         .from('incomes')
@@ -78,7 +78,7 @@ export function useIncomes() {
       toast.error('Error al actualizar ingreso');
       return undefined;
     }
-  };
+  }, []);
 
   const deleteIncome = async (id: string) => {
     try {
@@ -95,13 +95,13 @@ export function useIncomes() {
   };
 
   // Received helpers (UX parity with expenses paid)
-  const isIncomeReceivedForMonth = (i: IncomeRow, ref: Date = new Date()) => {
+  const isIncomeReceivedForMonth = useCallback((i: IncomeRow, ref: Date = new Date()) => {
     const key = monthKey(ref);
     const tags = Array.isArray(i.tags) ? i.tags : [];
     return tags.includes(`income-received:${key}`);
-  };
+  }, []);
 
-  const markIncomeReceivedForMonth = async (id: string, ref: Date = new Date()) => {
+  const markIncomeReceivedForMonth = useCallback(async (id: string, ref: Date = new Date()) => {
     const income = incomes.find(x => x.id === id);
     if (!income) return undefined;
     const key = monthKey(ref);
@@ -112,9 +112,22 @@ export function useIncomes() {
     const updated = await updateIncome(id, { tags: newTags });
     if (updated) toast.success('Ingreso marcado como recibido');
     return updated;
-  };
+  }, [incomes, updateIncome]);
 
-  const clearIncomeReceivedForMonth = async (id: string, ref: Date = new Date()) => {
+  // Auto-mark incomes whose payment_day <= today and not yet marked this month
+  const autoMarkDueIncomes = useCallback(async () => {
+    const today = new Date();
+    const day = today.getDate();
+    for (const income of incomes) {
+      if (!income.payment_day) continue;
+      if (income.payment_day <= day && !isIncomeReceivedForMonth(income, today)) {
+        await markIncomeReceivedForMonth(income.id, today);
+      }
+    }
+  // intentionally no deps on markIncomeReceivedForMonth to avoid re-loop each render
+  }, [incomes, isIncomeReceivedForMonth, markIncomeReceivedForMonth]);
+
+  const clearIncomeReceivedForMonth = useCallback(async (id: string, ref: Date = new Date()) => {
     const income = incomes.find(x => x.id === id);
     if (!income) return undefined;
     const key = monthKey(ref);
@@ -123,11 +136,10 @@ export function useIncomes() {
     const updated = await updateIncome(id, { tags: newTags });
     if (updated) toast.success('Marcado como no recibido');
     return updated;
-  };
+  }, [incomes, updateIncome]);
 
-  useEffect(() => {
-    fetchIncomes();
-  }, [fetchIncomes]);
+  useEffect(() => { fetchIncomes(); }, [fetchIncomes]);
+  useEffect(() => { if (!loading) autoMarkDueIncomes(); }, [loading, autoMarkDueIncomes]);
 
   return { incomes, loading, addIncome, updateIncome, deleteIncome, refetch: fetchIncomes, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth };
 }

@@ -11,12 +11,12 @@ import { User, Globe, Bell, Shield, CreditCard, RefreshCw } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
-import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { useExpenses } from "@/hooks/useExpenses";
 
 const Settings = () => {
   const { user } = useAuth();
   const { profile, loading: profileLoading, updateProfile, updateCurrency } = useUserProfile();
-  const { subscriptions } = useSubscriptions();
+  const { expenses } = useExpenses();
   const { refreshRates, lastUpdated, loading: ratesLoading } = useCurrencyExchange();
   
   const [userSettings, setUserSettings] = useState({
@@ -171,7 +171,7 @@ const Settings = () => {
                     </SelectContent>
                   </Select>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Todas las suscripciones se convertirán a esta moneda en el dashboard</p>
+                    <p>Los montos se mostrarán en esta moneda por defecto</p>
                     {lastUpdated && (
                       <p>Tipos de cambio actualizados: {lastUpdated.toLocaleTimeString('es-ES')}</p>
                     )}
@@ -207,9 +207,9 @@ const Settings = () => {
                 <Separator />
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Recordatorios de renovación</div>
+                    <div className="text-sm font-medium">Recordatorios de gastos</div>
                     <div className="text-xs text-muted-foreground">
-                      Avisos antes de que se renueven las suscripciones
+                      Recordatorios antes de vencimientos de gastos recurrentes
                     </div>
                   </div>
                   <Switch
@@ -222,7 +222,7 @@ const Settings = () => {
                   <div className="space-y-0.5">
                     <div className="text-sm font-medium">Reportes semanales</div>
                     <div className="text-xs text-muted-foreground">
-                      Resumen semanal de gastos y suscripciones
+                      Resumen semanal de gastos
                     </div>
                   </div>
                   <Switch
@@ -262,8 +262,8 @@ const Settings = () => {
                 </div>
                 <Separator />
                 <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Suscripciones activas</div>
-                  <div className="font-medium">{subscriptions.length} servicios</div>
+                  <div className="text-sm text-muted-foreground">Gastos recurrentes activos</div>
+                  <div className="font-medium">{expenses.filter(e => e.is_recurring).length}</div>
                 </div>
               </CardContent>
             </Card>

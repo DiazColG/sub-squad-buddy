@@ -174,29 +174,7 @@ export function useExpenses() {
     return updateExpense(templateId, { tags: newTags });
   };
 
-  const autoConfirmDueAutopay = async (referenceDate: Date = new Date()) => {
-    const year = referenceDate.getFullYear();
-    const month = referenceDate.getMonth() + 1;
-    const templates = getRecurringTemplates().filter(t => hasTag(t, 'autopay'));
-    let count = 0;
-    for (const t of templates) {
-      if (hasInstanceForTemplateInMonth(t.id, year, month)) continue;
-      const day = t.recurring_day && t.recurring_day >= 1 && t.recurring_day <= 31 ? t.recurring_day : 1;
-      const due = new Date(year, month - 1, day);
-      if (due <= referenceDate) {
-        const last3 = expenses
-          .filter(e => Array.isArray(e.tags) && e.tags.includes('recurrence-instance') && e.tags.includes(`recurrence-of:${t.id}`))
-          .sort((a, b) => (a.transaction_date > b.transaction_date ? -1 : 1))
-          .slice(0, 3);
-        const avg3 = last3.length > 0 ? last3.reduce((s, it) => s + (it.amount || 0), 0) / last3.length : undefined;
-        const suggestedAmount = (avg3 ?? t.amount);
-        const created = await confirmRecurringForMonth(t.id, { amount: suggestedAmount, date: due.toISOString().slice(0, 10) });
-        if (created) count++;
-      }
-    }
-    if (count > 0) toast.success(`Autopago confirmado: ${count}`);
-    return count;
-  };
+  // removed autopay flow
 
   const getDueSoonRecurring = (referenceDate: Date = new Date()) => {
     const items = getPendingRecurringForMonth(referenceDate);
@@ -304,7 +282,6 @@ export function useExpenses() {
     confirmRecurringForMonth,
     confirmAllPendingForMonth,
     snoozeRecurringTemplate,
-    autoConfirmDueAutopay,
     getDueSoonRecurring,
     isExpensePaid,
     markExpensePaid,

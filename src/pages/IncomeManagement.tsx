@@ -8,7 +8,9 @@ import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info, Trash2, Pencil, C
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useIncomes, type UpdateIncome } from '@/hooks/useIncomes';
+import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
 import AddIncomeForm from '@/components/AddIncomeForm';
+import IncomeHistory from '../components/IncomeHistory';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +24,7 @@ const IncomeManagement = () => {
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   const { incomes, loading, updateIncome, deleteIncome, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth } = useIncomes();
+  const receiptsApi = useIncomeReceipts();
 
   // removed beta gating
 
@@ -102,10 +105,19 @@ const IncomeManagement = () => {
   };
 
   const handleMarkReceived = async (id: string) => {
+    const income = incomes.find(x => x.id === id);
+    if (income) {
+      const incomeCurrency = getIncomeCurrency(income.tags);
+      await receiptsApi.upsertReceipt({ income_id: id, amount: income.amount, currency: incomeCurrency });
+    }
     await markIncomeReceivedForMonth(id);
   };
 
   const handleUndoReceived = async (id: string) => {
+    const now = new Date();
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const rec = receiptsApi.getByIncome(id).find(r => r.period_month === key);
+    if (rec) await receiptsApi.deleteReceipt(rec.id);
     await clearIncomeReceivedForMonth(id);
   };
 
@@ -141,6 +153,9 @@ const IncomeManagement = () => {
     setEditId(null);
     setEditForm(null);
   };
+
+  // History dialog state
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -319,6 +334,9 @@ const IncomeManagement = () => {
                   </div>
                   <div className="ml-4 flex items-center gap-2">
                     <Button size="icon" variant="ghost" title="Cambiar estado" onClick={() => {/* cycle status through tags */ const tags=Array.isArray(income.tags)?income.tags:[]; const statusTag=tags.find(t=>t.startsWith('status:'))||'status:active'; const cur=statusTag.replace('status:',''); const next=cur==='active'?'paused':cur==='paused'?'ended':'active'; const filtered=tags.filter(t=>!t.startsWith('status:')); updateIncome(income.id,{ tags:[...filtered,`status:${next}`] } as UpdateIncome); }}>
+                      <Info className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" title="Ver historial" onClick={() => setHistoryFor(income.id)}>
                       <History className="h-4 w-4" />
                     </Button>
                     {isIncomeReceivedForMonth(income) ? (
@@ -432,6 +450,22 @@ const IncomeManagement = () => {
                   <Button onClick={saveEdit}>Guardar cambios</Button>
                 </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Historial dialog */}
+        <Dialog open={Boolean(historyFor)} onOpenChange={(open) => { if (!open) setHistoryFor(null); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Historial del ingreso</DialogTitle>
+            </DialogHeader>
+            {historyFor && (
+              <IncomeHistory
+                incomeId={historyFor}
+                getIncomeCurrency={getIncomeCurrency}
+                userCurrency={userCurrency}
+              />
             )}
           </DialogContent>
         </Dialog>

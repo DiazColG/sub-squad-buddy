@@ -21,16 +21,13 @@ const ExpenseManagement = () => {
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
-  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, autoConfirmDueAutopay, isExpensePaid, markExpensePaid } = useExpenses();
+  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid } = useExpenses();
   const pendingRecurrent = getPendingRecurringForMonth(new Date());
   const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
   const dueSoon = getDueSoonRecurring(new Date());
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
-  useEffect(() => {
-    // Autopago: confirmar automáticamente los que vencen hoy o antes
-    autoConfirmDueAutopay(new Date());
-  }, [autoConfirmDueAutopay]);
+  // removed autopay auto-confirm
 
   // removed beta gating
 

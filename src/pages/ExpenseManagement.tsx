@@ -240,7 +240,12 @@ const ExpenseManagement = () => {
                           <Badge className="text-xs bg-green-100 text-green-800">Pagado</Badge>
                         )}
                         {(() => {
-                          const base = expense.transaction_date ? new Date(expense.transaction_date) : new Date();
+                          const tags = Array.isArray(expense.tags) ? expense.tags : [];
+                          const paidAtTag = tags.find(t => t.startsWith('paid-at:'));
+                          const paidAt = paidAtTag ? paidAtTag.replace('paid-at:', '') : undefined;
+                          const base = (isExpensePaid(expense) && paidAt)
+                            ? new Date(paidAt)
+                            : (expense.transaction_date ? new Date(expense.transaction_date) : new Date());
                           const monthLabel = base.toLocaleString('es-ES', { month: 'short' });
                           const monthText = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
                           const yearText = String(base.getFullYear());

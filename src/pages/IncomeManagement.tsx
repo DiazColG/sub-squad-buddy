@@ -302,9 +302,8 @@ const IncomeManagement = () => {
                             const today = new Date();
                             const due = income.payment_day && income.payment_day <= today.getDate();
                             const received = isIncomeReceivedForMonth(income);
-                            const receivedAtTag = tags.find(t => t.startsWith('received-at:'));
-                            const receivedAt = receivedAtTag ? receivedAtTag.replace('received-at:', '') : undefined;
-                            const base = (received && receivedAt) ? new Date(receivedAt) : today;
+                            const rec = receiptsApi.getByIncome(income.id).find(r => r.period_month === `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`);
+                            const base = rec?.received_at ? new Date(rec.received_at) : today;
                             const monthLabel = base.toLocaleString('es-ES', { month: 'short' });
                             const monthText = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
                             const yearText = String(base.getFullYear());
@@ -318,7 +317,7 @@ const IncomeManagement = () => {
                                 ) : (
                                   <Badge variant="secondary" className="text-xs">Pendiente</Badge>
                                 )}
-                                {/* Tags solicitados: mes y año basados en received-at si existe */}
+                                {/* Mes y año basados en registro de income_receipts si existe */}
                                 <Badge variant="outline" className="text-xs">{monthText}</Badge>
                                 <Badge variant="outline" className="text-xs">{yearText}</Badge>
                               </>

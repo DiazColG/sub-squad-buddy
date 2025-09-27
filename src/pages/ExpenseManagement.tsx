@@ -9,6 +9,7 @@ import { CreditCard, Plus, TrendingDown, Calendar, Filter, Info, DollarSign } fr
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useExpenses } from '@/hooks/useExpenses';
+import { useExpensePayments } from '@/hooks/useExpensePayments';
 import AddExpenseForm from '@/components/AddExpenseForm';
 import ExpenseHistory from '@/components/ExpenseHistory';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -23,6 +24,7 @@ const ExpenseManagement = () => {
 
   // Mock data para demostración
   const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid, undoExpensePaid } = useExpenses();
+  const paymentsApi = useExpensePayments();
   const pendingRecurrent = getPendingRecurringForMonth(new Date());
   const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
   const dueSoon = getDueSoonRecurring(new Date());
@@ -240,11 +242,9 @@ const ExpenseManagement = () => {
                           <Badge className="text-xs bg-green-100 text-green-800">Pagado</Badge>
                         )}
                         {(() => {
-                          const tags = Array.isArray(expense.tags) ? expense.tags : [];
-                          const paidAtTag = tags.find(t => t.startsWith('paid-at:'));
-                          const paidAt = paidAtTag ? paidAtTag.replace('paid-at:', '') : undefined;
-                          const base = (isExpensePaid(expense) && paidAt)
-                            ? new Date(paidAt)
+                          const pay = paymentsApi.getByExpense(expense.id)[0];
+                          const base = pay?.paid_at
+                            ? new Date(pay.paid_at)
                             : (expense.transaction_date ? new Date(expense.transaction_date) : new Date());
                           const monthLabel = base.toLocaleString('es-ES', { month: 'short' });
                           const monthText = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);

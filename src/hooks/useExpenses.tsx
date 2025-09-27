@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import { useExpensePayments } from '@/hooks/useExpensePayments';
 
 export type ExpenseRow = Database['public']['Tables']['expenses']['Row'];
 export type CreateExpense = Database['public']['Tables']['expenses']['Insert'];
@@ -12,6 +13,7 @@ export function useExpenses() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const paymentsApi = useExpensePayments();
   
   const monthKey = (d: Date | string) => {
     const date = typeof d === 'string' ? new Date(d) : d;
@@ -207,8 +209,23 @@ export function useExpenses() {
     if (isExpensePaid(exp)) return exp;
     const dateStr = (paidAt ? new Date(paidAt) : new Date()).toISOString().slice(0, 10);
     const newTags = [ ...(exp.tags || []), 'paid', `paid-at:${dateStr}` ];
+    // First, write payment record (idempotent by expense_id)
+    const currency = exp.currency || 'USD';
+    await paymentsApi.upsertPayment({ expense_id: id, amount: exp.amount, currency, paid_at: dateStr });
     const updated = await updateExpense(id, { tags: newTags });
     if (updated) toast.success('Marcado como pagado');
+    return updated;
+  };
+
+  const undoExpensePaid = async (id: string) => {
+    const exp = expenses.find(e => e.id === id);
+    if (!exp) return undefined;
+    // Remove payment record if exists
+    const pay = paymentsApi.getByExpense(id)[0];
+    if (pay) await paymentsApi.deletePayment(pay.id);
+    const filtered = (exp.tags || []).filter(t => t !== 'paid' && !t.startsWith('paid-at:'));
+    const updated = await updateExpense(id, { tags: filtered });
+    if (updated) toast.success('Pago desmarcado');
     return updated;
   };
 
@@ -285,5 +302,6 @@ export function useExpenses() {
     getDueSoonRecurring,
     isExpensePaid,
     markExpensePaid,
+    undoExpensePaid,
   };
 }

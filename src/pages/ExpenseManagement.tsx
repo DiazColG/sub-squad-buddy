@@ -10,6 +10,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useExpenses } from '@/hooks/useExpenses';
 import AddExpenseForm from '@/components/AddExpenseForm';
+import ExpenseHistory from '@/components/ExpenseHistory';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const ExpenseManagement = () => {
@@ -21,7 +22,7 @@ const ExpenseManagement = () => {
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
-  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid } = useExpenses();
+  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid, undoExpensePaid } = useExpenses();
   const pendingRecurrent = getPendingRecurringForMonth(new Date());
   const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
   const dueSoon = getDueSoonRecurring(new Date());
@@ -68,6 +69,7 @@ const ExpenseManagement = () => {
   };
 
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -222,7 +224,7 @@ const ExpenseManagement = () => {
                     <div>
                       <h3 className="font-medium text-gray-900">{expense.name}</h3>
                       <p className="text-sm text-gray-600">{expense.description}</p>
-                      <div className="flex items-center space-x-2 mt-1">
+                      <div className="flex items-center space-x-2 mt-1 flex-wrap">
                         {getFrequencyBadge(expense.frequency)}
                             {expense.category_id && (
                               <Badge variant="outline" className="text-xs">
@@ -237,6 +239,18 @@ const ExpenseManagement = () => {
                         {isExpensePaid(expense) && (
                           <Badge className="text-xs bg-green-100 text-green-800">Pagado</Badge>
                         )}
+                        {(() => {
+                          const base = expense.transaction_date ? new Date(expense.transaction_date) : new Date();
+                          const monthLabel = base.toLocaleString('es-ES', { month: 'short' });
+                          const monthText = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+                          const yearText = String(base.getFullYear());
+                          return (
+                            <>
+                              <Badge variant="outline" className="text-xs">{monthText}</Badge>
+                              <Badge variant="outline" className="text-xs">{yearText}</Badge>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -249,11 +263,14 @@ const ExpenseManagement = () => {
                                (expense.frequency || 'monthly') === 'weekly' ? 'semana' : 
                                (expense.frequency || 'monthly') === 'daily' ? 'día' : 'año'}
                     </div>
-                    {!isExpensePaid(expense) && Array.isArray(expense.tags) && expense.tags.includes('recurrence-instance') && (
-                      <div className="mt-2">
+                    <div className="mt-2 flex gap-2 justify-end">
+                      <Button size="sm" variant="outline" onClick={() => setHistoryFor(expense.id)}>Historial</Button>
+                      {!isExpensePaid(expense) && Array.isArray(expense.tags) && expense.tags.includes('recurrence-instance') ? (
                         <Button size="sm" variant="outline" onClick={() => markExpensePaid(expense.id)}>Marcar pagado</Button>
-                      </div>
-                    )}
+                      ) : isExpensePaid(expense) ? (
+                        <Button size="sm" variant="ghost" onClick={() => undoExpensePaid(expense.id)}>Deshacer</Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -309,6 +326,18 @@ const ExpenseManagement = () => {
             </div>
           </div>
         )}
+
+        {/* Historial de pagos */}
+        <Dialog open={Boolean(historyFor)} onOpenChange={v => !v && setHistoryFor(null)}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Historial de pagos</DialogTitle>
+            </DialogHeader>
+            {historyFor && (
+              <ExpenseHistory expenseId={historyFor} defaultCurrency={userCurrency} />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* */}
       </div>

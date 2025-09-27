@@ -302,6 +302,9 @@ const IncomeManagement = () => {
                             const today = new Date();
                             const due = income.payment_day && income.payment_day <= today.getDate();
                             const received = isIncomeReceivedForMonth(income);
+                            const monthLabel = today.toLocaleString('es-ES', { month: 'short' });
+                            const monthText = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+                            const yearText = String(today.getFullYear());
                             return (
                               <>
                                 <Badge className={`text-xs ${status==='active' ? 'bg-green-600' : status==='paused' ? 'bg-amber-500' : 'bg-gray-500'}`}>{status==='active'?'Activo':status==='paused'?'Pausado':'Finalizado'}</Badge>
@@ -312,6 +315,9 @@ const IncomeManagement = () => {
                                 ) : (
                                   <Badge variant="secondary" className="text-xs">Pendiente</Badge>
                                 )}
+                                {/* Tags solicitados: mes y año del período actual */}
+                                <Badge variant="outline" className="text-xs">{monthText}</Badge>
+                                <Badge variant="outline" className="text-xs">{yearText}</Badge>
                               </>
                             );
                           })()}

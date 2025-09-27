@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS public.income_receipts (
   income_id uuid NOT NULL REFERENCES public.incomes(id) ON DELETE CASCADE,
   received_at date NOT NULL DEFAULT CURRENT_DATE,
   -- Period key derived from received_at to avoid client mistakes
-  period_month text GENERATED ALWAYS AS (to_char(received_at, 'YYYY-MM')) STORED,
+  period_month text GENERATED ALWAYS AS (
+    ((extract(year from received_at)::int)::text || '-' || lpad((extract(month from received_at)::int)::text, 2, '0'))
+  ) STORED,
   amount numeric NOT NULL,
   currency text NOT NULL,
   notes text,
@@ -32,15 +34,11 @@ CREATE INDEX IF NOT EXISTS idx_income_receipts_income
 -- Enable RLS and basic policies mirroring other tables
 ALTER TABLE public.income_receipts ENABLE ROW LEVEL SECURITY;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'income_receipts'
-  ) THEN
-    CREATE POLICY "Individuals can access own income receipts"
-      ON public.income_receipts
-      FOR ALL
-      USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
-  END IF;
-END $$;
+-- Supabase SQL Editor-friendly (no DO blocks). Recreate policy idempotently.
+DROP POLICY IF EXISTS "Individuals can access own income receipts" ON public.income_receipts;
+
+CREATE POLICY "Individuals can access own income receipts"
+  ON public.income_receipts
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);

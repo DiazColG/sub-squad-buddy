@@ -14,7 +14,6 @@ export function useExpenses() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const paymentsApi = useExpensePayments();
-  
   const monthKey = (d: Date | string) => {
     const date = typeof d === 'string' ? new Date(d) : d;
     const y = date.getFullYear();
@@ -173,7 +172,7 @@ export function useExpenses() {
       ...(template.tags || []).filter(t => !t.startsWith('snoozed-until:')),
       `snoozed-until:${until}`
     ];
-    return updateExpense(templateId, { tags: newTags });
+     return updateExpense(templateId, { tags: newTags });
   };
 
   // removed autopay flow
@@ -194,7 +193,10 @@ export function useExpenses() {
     const items = getPendingRecurringForMonth(date);
     let count = 0;
     for (const it of items) {
-      const created = await confirmRecurringForMonth(it.template.id, { amount: it.suggested.amount, date: it.suggested.date });
+      const created = await confirmRecurringForMonth(it.template.id, {
+        amount: it.suggested.amount,
+        date: it.suggested.date
+      });
       if (created) count++;
     }
     if (count > 0) toast.success(`Confirmados ${count} recurrentes`);
@@ -203,15 +205,24 @@ export function useExpenses() {
   };
 
   const isExpensePaid = (e: ExpenseRow) => Array.isArray(e.tags) && e.tags.includes('paid');
+
   const markExpensePaid = async (id: string, paidAt?: string) => {
     const exp = expenses.find(e => e.id === id);
     if (!exp) return undefined;
     if (isExpensePaid(exp)) return exp;
+
     const dateStr = (paidAt ? new Date(paidAt) : new Date()).toISOString().slice(0, 10);
-    const newTags = [ ...(exp.tags || []), 'paid', `paid-at:${dateStr}` ];
+
     // First, write payment record (idempotent by expense_id)
     const currency = exp.currency || 'USD';
-    await paymentsApi.upsertPayment({ expense_id: id, amount: exp.amount, currency, paid_at: dateStr });
+    await paymentsApi.upsertPayment({
+      expense_id: id,
+      amount: exp.amount,
+      currency,
+      paid_at: dateStr
+    });
+
+    const newTags = [ ...(exp.tags || []), 'paid', `paid-at:${dateStr}` ];
     const updated = await updateExpense(id, { tags: newTags });
     if (updated) toast.success('Marcado como pagado');
     return updated;
@@ -220,9 +231,11 @@ export function useExpenses() {
   const undoExpensePaid = async (id: string) => {
     const exp = expenses.find(e => e.id === id);
     if (!exp) return undefined;
+
     // Remove payment record if exists
     const pay = paymentsApi.getByExpense(id)[0];
     if (pay) await paymentsApi.deletePayment(pay.id);
+
     const filtered = (exp.tags || []).filter(t => t !== 'paid' && !t.startsWith('paid-at:'));
     const updated = await updateExpense(id, { tags: filtered });
     if (updated) toast.success('Pago desmarcado');

@@ -19,13 +19,13 @@ type Scenario = {
   createdAt: string;
 };
 
-const storageKey = (userId?: string) => `fire_scenarios_${userId || 'anon'}`;
+const storageKey = (userId?: string) => `fire_scenarios_${userId || "anon"}`;
 
 export default function FIRECalculator() {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const { formatCurrency: fmt } = useCurrencyExchange();
-  const currency = profile?.primary_display_currency || 'USD';
+  const currency = profile?.primary_display_currency || "USD";
   const { items, createOne, deleteOne } = useFireScenarios();
 
   // Raw string states (permiten "" y evitan ceros forzados / saltos de cursor)
@@ -37,13 +37,13 @@ export default function FIRECalculator() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]); // local fallback
   const [scenarioName, setScenarioName] = useState<string>("");
 
-  // Load scenarios
+  // Load scenarios (local)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey(user?.id));
       if (raw) setScenarios(JSON.parse(raw));
     } catch (e) {
-      console.warn('No se pudieron cargar escenarios FIRE:', e);
+      console.warn("No se pudieron cargar escenarios FIRE:", e);
     }
   }, [user?.id]);
 
@@ -54,7 +54,7 @@ export default function FIRECalculator() {
 
   // Map DB rows to UI scenarios
   const dbScenarios: Scenario[] = useMemo(() => {
-    return ((items || []) as Database['public']['Tables']['fire_scenarios']['Row'][]).map((r) => ({
+    return ((items || []) as Database["public"]["Tables"]["fire_scenarios"]["Row"][]).map((r) => ({
       id: r.id,
       name: r.name,
       monthlyExpenses: Number(r.monthly_expenses ?? 0),
@@ -71,7 +71,7 @@ export default function FIRECalculator() {
   // Helpers de parseo
   const parseNumber = (s: string) => {
     if (s === "" || s === undefined) return 0;
-    const n = Number(s.replace(/,/g, ''));
+    const n = Number(s.replace(/,/g, ""));
     return isFinite(n) ? n : 0;
   };
   const normalizeString = (s: string) => {
@@ -104,7 +104,7 @@ export default function FIRECalculator() {
     const annual = Math.max(-0.99, realAnnualReturn);
     const r = Math.pow(1 + annual, 1 / 12) - 1; // monthly real rate
 
-    if (!isFinite(target) || target <= 0 || (P >= target)) return 0;
+    if (!isFinite(target) || target <= 0 || P >= target) return 0;
 
     if (Math.abs(r) < 1e-9) {
       if (PMT <= 0) return Infinity;
@@ -159,19 +159,23 @@ export default function FIRECalculator() {
 
   const handleLoad = (s: Scenario) => {
     setMonthlyExpensesInput(String(s.monthlyExpenses));
-    setWithdrawalRateInput(String((s.withdrawalRate * 100).toFixed(2).replace(/\.0+$/,'')));
+    setWithdrawalRateInput(String((s.withdrawalRate * 100).toFixed(2).replace(/\.0+$/, "")));
     setCurrentPortfolioInput(String(s.currentPortfolio));
     setMonthlySavingsInput(String(s.monthlySavings));
-    setRealAnnualReturnInput(String((s.realAnnualReturn * 100).toFixed(2).replace(/\.0+$/,'')));
+    setRealAnnualReturnInput(String((s.realAnnualReturn * 100).toFixed(2).replace(/\.0+$/, "")));
   };
 
   const handleDelete = async (id: string) => {
     // If deleting a DB scenario, call API
-    const dbMatch = dbScenarios.find(s => s.id === id);
+    const dbMatch = dbScenarios.find((s) => s.id === id);
     if (dbMatch) {
-      try { await deleteOne(id); } catch (e) { console.warn('No se pudo eliminar en DB', e); }
+      try {
+        await deleteOne(id);
+      } catch (e) {
+        console.warn("No se pudo eliminar en DB", e);
+      }
     }
-    const next = scenarios.filter(s => s.id !== id);
+    const next = scenarios.filter((s) => s.id !== id);
     saveScenarios(next);
   };
 
@@ -183,44 +187,49 @@ export default function FIRECalculator() {
         </CardHeader>
         <CardContent>
           <div className="mb-4 text-xs text-muted-foreground leading-relaxed border rounded-md p-3 bg-muted/40">
-            Todos los montos se ingresan y muestran en <span className="font-medium">{currency}</span> (valores reales, sin ajuste inflacionario adicional). 
-            Las tasas (%) son reales (descontada la inflación). Ajusta tu moneda base desde tu perfil para cambiar esta referencia.
+            Todos los montos se ingresan y muestran en{" "}
+            <span className="font-medium">{currency}</span> (valores reales, sin ajuste inflacionario adicional).
+            Las tasas (%) son reales (descontada la inflación). Ajusta tu moneda base desde tu perfil para cambiar esta
+            referencia.
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm">Gastos mensuales ({currency})</label>
               <Input
                 type="number"
                 value={monthlyExpensesInput}
-                onChange={e => setMonthlyExpensesInput(e.target.value)}
-                onBlur={e => setMonthlyExpensesInput(normalizeString(e.target.value))}
+                onChange={(e) => setMonthlyExpensesInput(e.target.value)}
+                onBlur={(e) => setMonthlyExpensesInput(normalizeString(e.target.value))}
               />
             </div>
             <div>
               <label className="text-sm">Gastos anuales ({currency})</label>
               <Input type="number" value={annualExpenses} readOnly />
             </div>
+
             <div>
               <label className="text-sm">Tasa de retiro segura (%)</label>
               <Input
                 type="number"
                 step="0.1"
                 value={withdrawalRateInput}
-                onChange={e => setWithdrawalRateInput(e.target.value)}
-                onBlur={e => setWithdrawalRateInput(normalizeString(e.target.value))}
+                onChange={(e) => setWithdrawalRateInput(e.target.value)}
+                onBlur={(e) => setWithdrawalRateInput(normalizeString(e.target.value))}
               />
             </div>
             <div>
               <label className="text-sm">Multiplicador (regla del 25)</label>
               <Input type="number" value={multiplier} readOnly />
             </div>
+
             <div>
               <label className="text-sm">Cartera actual ({currency})</label>
               <Input
                 type="number"
                 value={currentPortfolioInput}
-                onChange={e => setCurrentPortfolioInput(e.target.value)}
-                onBlur={e => setCurrentPortfolioInput(normalizeString(e.target.value))}
+                onChange={(e) => setCurrentPortfolioInput(e.target.value)}
+                onBlur={(e) => setCurrentPortfolioInput(normalizeString(e.target.value))}
               />
             </div>
             <div>
@@ -228,18 +237,19 @@ export default function FIRECalculator() {
               <Input
                 type="number"
                 value={monthlySavingsInput}
-                onChange={e => setMonthlySavingsInput(e.target.value)}
-                onBlur={e => setMonthlySavingsInput(normalizeString(e.target.value))}
+                onChange={(e) => setMonthlySavingsInput(e.target.value)}
+                onBlur={(e) => setMonthlySavingsInput(normalizeString(e.target.value))}
               />
             </div>
+
             <div>
               <label className="text-sm">Rendimiento real anual (%)</label>
               <Input
                 type="number"
                 step="0.1"
                 value={realAnnualReturnInput}
-                onChange={e => setRealAnnualReturnInput(e.target.value)}
-                onBlur={e => setRealAnnualReturnInput(normalizeString(e.target.value))}
+                onChange={(e) => setRealAnnualReturnInput(e.target.value)}
+                onBlur={(e) => setRealAnnualReturnInput(normalizeString(e.target.value))}
               />
             </div>
           </div>
@@ -254,6 +264,7 @@ export default function FIRECalculator() {
                 <div className="text-xs text-muted-foreground">{multiplier.toFixed(2)} × gastos anuales</div>
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Retiro anual (4%)</CardTitle>
@@ -263,13 +274,16 @@ export default function FIRECalculator() {
                 <div className="text-xs text-muted-foreground">Aproximación teórica</div>
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Progreso</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-semibold">{progressPct.toFixed(1)}%</div>
-                <div className="text-xs text-muted-foreground">{fmt(currentPortfolio, currency)} / {fmt(fireNumber, currency)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {fmt(currentPortfolio, currency)} / {fmt(fireNumber, currency)}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -277,9 +291,13 @@ export default function FIRECalculator() {
           <div className="mt-6 p-4 border rounded-md bg-muted/30">
             <div className="text-sm text-muted-foreground">Tiempo estimado hasta FIRE</div>
             <div className="text-2xl font-bold mt-1">
-              {estimateMonthsToFire === Infinity ? 'No alcanzable con los parámetros actuales' : `${years} años ${months} meses`}
+              {estimateMonthsToFire === Infinity
+                ? "No alcanzable con los parámetros actuales"
+                : `${years} años ${months} meses`}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Asume aportes mensuales constantes y rendimiento real constante.</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Asume aportes mensuales constantes y rendimiento real constante.
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -291,22 +309,34 @@ export default function FIRECalculator() {
         <CardContent>
           <div className="space-y-3">
             <div className="flex gap-2">
-              <Input placeholder="Nombre del escenario" value={scenarioName} onChange={e => setScenarioName(e.target.value)} />
+              <Input
+                placeholder="Nombre del escenario"
+                value={scenarioName}
+                onChange={(e) => setScenarioName(e.target.value)}
+              />
               <Button onClick={handleSave}>Guardar</Button>
             </div>
+
             {displayScenarios.length === 0 ? (
               <div className="text-sm text-muted-foreground">No hay escenarios guardados aún.</div>
             ) : (
               <ul className="space-y-2">
-                {displayScenarios.map(s => (
+                {displayScenarios.map((s) => (
                   <li key={s.id} className="flex items-center justify-between border rounded-md p-3">
                     <div>
                       <div className="font-medium">{s.name}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()} • Gastos: {fmt(s.monthlyExpenses * 12, currency)} • Tasa retiro: {(s.withdrawalRate*100).toFixed(1)}%</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(s.createdAt).toLocaleString()} • Gastos: {fmt(s.monthlyExpenses * 12, currency)} •
+                        Tasa retiro: {(s.withdrawalRate * 100).toFixed(1)}%
+                      </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => handleLoad(s)}>Cargar</Button>
-                      <Button variant="destructive" onClick={() => handleDelete(s.id)}>Eliminar</Button>
+                      <Button variant="outline" onClick={() => handleLoad(s)}>
+                        Cargar
+                      </Button>
+                      <Button variant="destructive" onClick={() => handleDelete(s.id)}>
+                        Eliminar
+                      </Button>
                     </div>
                   </li>
                 ))}

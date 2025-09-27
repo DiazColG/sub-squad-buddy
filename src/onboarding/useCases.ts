@@ -40,10 +40,12 @@ export const useCases: UseCase[] = [
       'Quiero confirmar/editar mis gastos recurrentes del mes en 1 minuto',
       'Quiero posponer y que algunos se paguen solos',
     ],
+
   keyFlows: ['Confirmar recurrentes', 'Posponer 7 días'],
     routes: ['/gastos'],
     triggers: ['Inicio de mes', '7-3 días antes del vencimiento'],
   successMetrics: ['% de recurrentes confirmados antes del vencimiento'],
+
     recommendedSurface: ['banner', 'task-list'],
     quickActions: [
       { label: 'Confirmar todo', route: '/gastos' },

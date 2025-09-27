@@ -172,7 +172,9 @@ export type Database = {
           notes: string | null
           optimization_potential: number | null
           optimization_tags: string[] | null
+
           period_month: string | null
+
           payment_method: string | null
           receipt_url: string | null
           recurring_day: number | null
@@ -204,7 +206,9 @@ export type Database = {
           notes?: string | null
           optimization_potential?: number | null
           optimization_tags?: string[] | null
+
           period_month?: string | null
+
           payment_method?: string | null
           receipt_url?: string | null
           recurring_day?: number | null
@@ -236,7 +240,9 @@ export type Database = {
           notes?: string | null
           optimization_potential?: number | null
           optimization_tags?: string[] | null
+
           period_month?: string | null
+
           payment_method?: string | null
           receipt_url?: string | null
           recurring_day?: number | null
@@ -658,6 +664,7 @@ export type Database = {
         ]
       }
       ,
+
       income_receipts: {
         Row: {
           id: string
@@ -756,6 +763,7 @@ export type Database = {
         ]
       }
       ,
+
       fire_scenarios: {
         Row: {
           id: string

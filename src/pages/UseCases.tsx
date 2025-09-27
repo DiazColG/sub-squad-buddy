@@ -36,11 +36,13 @@ const educationalSections: Section[] = [
           'Ir a Dashboard y usar Smart Start (tareas rápidas).',
           'Agregar ingreso principal.',
           'Agregar plantillas de gastos con presets (Alquiler, Internet, Luz…).',
-          'Definir Autopago y Recordatorios para cada plantilla.',
+
+          'Definir recordatorios para cada plantilla.',
           'Confirmar recurrentes del mes desde Gastos > Recurrentes de este mes.',
         ],
         tips: [
-          'Usá Autopago para gastos siempre iguales.',
+          'Usá recordatorios para anticiparte a los vencimientos.',
+
           'Definí “Recordatorio” a 3-5 días para evitar sorpresas.',
         ],
         quickStart: [
@@ -83,12 +85,16 @@ const educationalSections: Section[] = [
       {
         id: 'recurring-expenses',
         title: 'Gastos recurrentes (plantillas)',
-        summary: 'Creá plantillas mensuales con día, autopago y recordatorios.',
+
+  summary: 'Creá plantillas mensuales con día y recordatorios.',
+
         steps: [
           'Ir a Gastos y “Nuevo Gasto”.',
           'Elegir un preset (Alquiler, Internet…) o crear desde cero.',
           'Marcar “Recurrente” y definir “Día de cobro”.',
-          'Opcional: activar “Autopago” y “Recordatorio (días antes)”.',
+
+          'Opcional: activar “Recordatorio (días antes)”.',
+
           'Guardar la plantilla. Se sugerirá confirmar cada mes.',
         ],
         tips: [
@@ -113,19 +119,23 @@ const educationalSections: Section[] = [
           'Luego de confirmar, podés “Marcar pagado” para llevar control de pagos.',
         ],
         tips: [
-          'Los gastos con Autopago se confirman automáticamente en su fecha.',
+
+          'Podés confirmar rápido desde la bandeja de recurrentes del mes.',
+
           'La bandeja muestra badges de “Pagado” y estadísticas del mes.',
         ],
       },
       {
         id: 'bridges-to-expenses',
-        title: 'Unificar Suscripciones y Servicios en Gastos',
-        summary: 'Reflejás suscripciones y servicios como plantillas de gasto mensual.',
+
+        title: 'Unificar todo en Gastos',
+        summary: 'Centralizá suscripciones y servicios como plantillas de gasto mensual.',
         steps: [
-          'Ir a Suscripciones o Servicios de Vivienda y crear/editar un registro.',
-          'Activar “Reflejar en Gastos” para crear la plantilla mensual.',
-          'Definir día, autopago y recordatorios; el origen queda etiquetado.',
-          'Gestionar confirmación y pago desde Gastos como cualquier recurrente.',
+          'Ir a Gastos y crear plantillas para tus servicios/abonos.',
+          'Definir día del mes y “Recordatorio (días antes)”.',
+          'Usar tags para indicar el origen si lo necesitás (ej: servicio:spotify).',
+          'Confirmar y marcar pagado desde Gastos como cualquier recurrente.',
+
         ],
         tips: [
           'La procedencia queda visible con tags, sin duplicar datos.',
@@ -288,7 +298,9 @@ const UseCasesPage: React.FC = () => {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-              <Input className="pl-8" placeholder="Presupuestos, recurrentes, autopago..." value={query} onChange={e => setQuery(e.target.value)} />
+
+              <Input className="pl-8" placeholder="Presupuestos, recurrentes..." value={query} onChange={e => setQuery(e.target.value)} />
+
             </div>
           </div>
           {filtered.length > 0 && (

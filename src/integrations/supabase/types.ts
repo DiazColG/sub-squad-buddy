@@ -172,6 +172,9 @@ export type Database = {
           notes: string | null
           optimization_potential: number | null
           optimization_tags: string[] | null
+
+          period_month: string | null
+
           payment_method: string | null
           receipt_url: string | null
           recurring_day: number | null
@@ -203,6 +206,9 @@ export type Database = {
           notes?: string | null
           optimization_potential?: number | null
           optimization_tags?: string[] | null
+
+          period_month?: string | null
+
           payment_method?: string | null
           receipt_url?: string | null
           recurring_day?: number | null
@@ -234,6 +240,9 @@ export type Database = {
           notes?: string | null
           optimization_potential?: number | null
           optimization_tags?: string[] | null
+
+          period_month?: string | null
+
           payment_method?: string | null
           receipt_url?: string | null
           recurring_day?: number | null
@@ -655,6 +664,106 @@ export type Database = {
         ]
       }
       ,
+
+      income_receipts: {
+        Row: {
+          id: string
+          user_id: string
+          income_id: string
+          received_at: string
+          period_month: string
+          amount: number
+          currency: string
+          notes: string | null
+          tags: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          income_id: string
+          received_at?: string
+          amount: number
+          currency: string
+          notes?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          income_id?: string
+          received_at?: string
+          amount?: number
+          currency?: string
+          notes?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "income_receipts_income_id_fkey"
+            columns: ["income_id"]
+            isOneToOne: false
+            referencedRelation: "incomes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ,
+      expense_payments: {
+        Row: {
+          id: string
+          user_id: string
+          expense_id: string
+          paid_at: string
+          period_month: string
+          amount: number
+          currency: string
+          notes: string | null
+          tags: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          expense_id: string
+          paid_at?: string
+          amount: number
+          currency: string
+          notes?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          expense_id?: string
+          paid_at?: string
+          amount?: number
+          currency?: string
+          notes?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_payments_expense_id_fkey",
+            columns: ["expense_id"],
+            isOneToOne: false,
+            referencedRelation: "expenses",
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ,
+
       fire_scenarios: {
         Row: {
           id: string

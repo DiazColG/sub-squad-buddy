@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import { useExpensePayments } from '@/hooks/useExpensePayments';
 
 export type ExpenseRow = Database['public']['Tables']['expenses']['Row'];
 export type CreateExpense = Database['public']['Tables']['expenses']['Insert'];
@@ -12,7 +13,7 @@ export function useExpenses() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const paymentsApi = useExpensePayments();
   const monthKey = (d: Date | string) => {
     const date = typeof d === 'string' ? new Date(d) : d;
     const y = date.getFullYear();
@@ -171,32 +172,10 @@ export function useExpenses() {
       ...(template.tags || []).filter(t => !t.startsWith('snoozed-until:')),
       `snoozed-until:${until}`
     ];
-    return updateExpense(templateId, { tags: newTags });
+     return updateExpense(templateId, { tags: newTags });
   };
 
-  const autoConfirmDueAutopay = async (referenceDate: Date = new Date()) => {
-    const year = referenceDate.getFullYear();
-    const month = referenceDate.getMonth() + 1;
-    const templates = getRecurringTemplates().filter(t => hasTag(t, 'autopay'));
-    let count = 0;
-    for (const t of templates) {
-      if (hasInstanceForTemplateInMonth(t.id, year, month)) continue;
-      const day = t.recurring_day && t.recurring_day >= 1 && t.recurring_day <= 31 ? t.recurring_day : 1;
-      const due = new Date(year, month - 1, day);
-      if (due <= referenceDate) {
-        const last3 = expenses
-          .filter(e => Array.isArray(e.tags) && e.tags.includes('recurrence-instance') && e.tags.includes(`recurrence-of:${t.id}`))
-          .sort((a, b) => (a.transaction_date > b.transaction_date ? -1 : 1))
-          .slice(0, 3);
-        const avg3 = last3.length > 0 ? last3.reduce((s, it) => s + (it.amount || 0), 0) / last3.length : undefined;
-        const suggestedAmount = (avg3 ?? t.amount);
-        const created = await confirmRecurringForMonth(t.id, { amount: suggestedAmount, date: due.toISOString().slice(0, 10) });
-        if (created) count++;
-      }
-    }
-    if (count > 0) toast.success(`Autopago confirmado: ${count}`);
-    return count;
-  };
+  // removed autopay flow
 
   const getDueSoonRecurring = (referenceDate: Date = new Date()) => {
     const items = getPendingRecurringForMonth(referenceDate);
@@ -214,7 +193,10 @@ export function useExpenses() {
     const items = getPendingRecurringForMonth(date);
     let count = 0;
     for (const it of items) {
-      const created = await confirmRecurringForMonth(it.template.id, { amount: it.suggested.amount, date: it.suggested.date });
+      const created = await confirmRecurringForMonth(it.template.id, {
+        amount: it.suggested.amount,
+        date: it.suggested.date
+      });
       if (created) count++;
     }
     if (count > 0) toast.success(`Confirmados ${count} recurrentes`);
@@ -223,14 +205,40 @@ export function useExpenses() {
   };
 
   const isExpensePaid = (e: ExpenseRow) => Array.isArray(e.tags) && e.tags.includes('paid');
+
   const markExpensePaid = async (id: string, paidAt?: string) => {
     const exp = expenses.find(e => e.id === id);
     if (!exp) return undefined;
     if (isExpensePaid(exp)) return exp;
+
     const dateStr = (paidAt ? new Date(paidAt) : new Date()).toISOString().slice(0, 10);
+
+    // First, write payment record (idempotent by expense_id)
+    const currency = exp.currency || 'USD';
+    await paymentsApi.upsertPayment({
+      expense_id: id,
+      amount: exp.amount,
+      currency,
+      paid_at: dateStr
+    });
+
     const newTags = [ ...(exp.tags || []), 'paid', `paid-at:${dateStr}` ];
     const updated = await updateExpense(id, { tags: newTags });
     if (updated) toast.success('Marcado como pagado');
+    return updated;
+  };
+
+  const undoExpensePaid = async (id: string) => {
+    const exp = expenses.find(e => e.id === id);
+    if (!exp) return undefined;
+
+    // Remove payment record if exists
+    const pay = paymentsApi.getByExpense(id)[0];
+    if (pay) await paymentsApi.deletePayment(pay.id);
+
+    const filtered = (exp.tags || []).filter(t => t !== 'paid' && !t.startsWith('paid-at:'));
+    const updated = await updateExpense(id, { tags: filtered });
+    if (updated) toast.success('Pago desmarcado');
     return updated;
   };
 
@@ -304,9 +312,9 @@ export function useExpenses() {
     confirmRecurringForMonth,
     confirmAllPendingForMonth,
     snoozeRecurringTemplate,
-    autoConfirmDueAutopay,
     getDueSoonRecurring,
     isExpensePaid,
     markExpensePaid,
+    undoExpensePaid,
   };
 }

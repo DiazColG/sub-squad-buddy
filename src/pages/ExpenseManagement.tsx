@@ -9,11 +9,9 @@ import { CreditCard, Plus, TrendingDown, Calendar, Filter, Info, DollarSign } fr
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useExpenses } from '@/hooks/useExpenses';
-
 import { useExpensePayments } from '@/hooks/useExpensePayments';
 import AddExpenseForm from '@/components/AddExpenseForm';
 import ExpenseHistory from '@/components/ExpenseHistory';
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const ExpenseManagement = () => {
@@ -25,18 +23,14 @@ const ExpenseManagement = () => {
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
-
   const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid, undoExpensePaid } = useExpenses();
   const paymentsApi = useExpensePayments();
-
   const pendingRecurrent = getPendingRecurringForMonth(new Date());
   const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
   const dueSoon = getDueSoonRecurring(new Date());
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
-
   // removed autopay auto-confirm
-
 
   // removed beta gating
 
@@ -77,9 +71,7 @@ const ExpenseManagement = () => {
   };
 
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
-
   const [historyFor, setHistoryFor] = useState<string | null>(null);
-
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -249,7 +241,6 @@ const ExpenseManagement = () => {
                         {isExpensePaid(expense) && (
                           <Badge className="text-xs bg-green-100 text-green-800">Pagado</Badge>
                         )}
-
                         {(() => {
                           const pay = paymentsApi.getByExpense(expense.id)[0];
                           const base = pay?.paid_at
@@ -265,7 +256,6 @@ const ExpenseManagement = () => {
                             </>
                           );
                         })()}
-
                       </div>
                     </div>
                   </div>
@@ -277,7 +267,6 @@ const ExpenseManagement = () => {
                           por {(expense.frequency || 'monthly') === 'monthly' ? 'mes' : 
                                (expense.frequency || 'monthly') === 'weekly' ? 'semana' : 
                                (expense.frequency || 'monthly') === 'daily' ? 'día' : 'año'}
-
                     </div>
                     <div className="mt-2 flex gap-2 justify-end">
                       <Button size="sm" variant="outline" onClick={() => setHistoryFor(expense.id)}>Historial</Button>
@@ -286,13 +275,7 @@ const ExpenseManagement = () => {
                       ) : isExpensePaid(expense) ? (
                         <Button size="sm" variant="ghost" onClick={() => undoExpensePaid(expense.id)}>Deshacer</Button>
                       ) : null}
-
                     </div>
-                    {!isExpensePaid(expense) && Array.isArray(expense.tags) && expense.tags.includes('recurrence-instance') && (
-                      <div className="mt-2">
-                        <Button size="sm" variant="outline" onClick={() => markExpensePaid(expense.id)}>Marcar pagado</Button>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -349,7 +332,6 @@ const ExpenseManagement = () => {
           </div>
         )}
 
-
         {/* Historial de pagos */}
         <Dialog open={Boolean(historyFor)} onOpenChange={v => !v && setHistoryFor(null)}>
           <DialogContent className="max-w-xl">
@@ -361,7 +343,6 @@ const ExpenseManagement = () => {
             )}
           </DialogContent>
         </Dialog>
-
 
         {/* */}
       </div>

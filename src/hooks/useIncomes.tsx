@@ -95,7 +95,6 @@ export function useIncomes() {
   };
 
   // Received helpers (UX parity with expenses paid)
-
   const isIncomeReceivedForMonth = useCallback((i: IncomeRow, ref: Date = new Date()) => {
     const key = monthKey(ref);
     const tags = Array.isArray(i.tags) ? i.tags : [];
@@ -103,7 +102,6 @@ export function useIncomes() {
   }, []);
 
   const markIncomeReceivedForMonth = useCallback(async (id: string, ref: Date = new Date()) => {
-
     const income = incomes.find(x => x.id === id);
     if (!income) return undefined;
     const key = monthKey(ref);
@@ -114,7 +112,6 @@ export function useIncomes() {
     const updated = await updateIncome(id, { tags: newTags });
     if (updated) toast.success('Ingreso marcado como recibido');
     return updated;
-
   }, [incomes, updateIncome]);
 
   // Auto-mark incomes whose payment_day <= today and not yet marked this month
@@ -131,7 +128,6 @@ export function useIncomes() {
   }, [incomes, isIncomeReceivedForMonth, markIncomeReceivedForMonth]);
 
   const clearIncomeReceivedForMonth = useCallback(async (id: string, ref: Date = new Date()) => {
-
     const income = incomes.find(x => x.id === id);
     if (!income) return undefined;
     const key = monthKey(ref);
@@ -140,12 +136,10 @@ export function useIncomes() {
     const updated = await updateIncome(id, { tags: newTags });
     if (updated) toast.success('Marcado como no recibido');
     return updated;
-
   }, [incomes, updateIncome]);
 
   useEffect(() => { fetchIncomes(); }, [fetchIncomes]);
   useEffect(() => { if (!loading) autoMarkDueIncomes(); }, [loading, autoMarkDueIncomes]);
-
 
   return { incomes, loading, addIncome, updateIncome, deleteIncome, refetch: fetchIncomes, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth };
 }

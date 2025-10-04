@@ -1,4 +1,3 @@
-
 import { useMemo, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -205,12 +204,10 @@ const Analytics = () => {
               </p>
             </CardContent>
           </Card>
-
         </div>
       </Layout>
     );
   }
-
 
   const incMTD = mtd.income;
   const expMTD = mtd.expenses;
@@ -253,13 +250,11 @@ const Analytics = () => {
             <CardContent>
               <div className="text-2xl font-bold text-red-700">{fmt(expMTD, userCurrency)}</div>
               <p className="text-xs text-muted-foreground">Mes actual</p>
-
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-
               <CardTitle className="text-sm font-medium">Neto MTD</CardTitle>
               {netMTD >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
             </CardHeader>
@@ -270,14 +265,12 @@ const Analytics = () => {
                 {prev && (
                   <span className="text-xs">MoM: {netMoM>=0?'+':''}{fmt(netMoM, userCurrency)}</span>
                 )}
-
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-
               <CardTitle className="text-sm font-medium">Cobertura del Mes</CardTitle>
               <Target className="h-4 w-4 text-purple-600" />
             </CardHeader>
@@ -295,24 +288,20 @@ const Analytics = () => {
               {(coverage.incomesDue.length>0 || coverage.expensesDue.length>0) && (
                 <p className="text-xs text-muted-foreground mt-2">Pendientes: {coverage.incomesDue.length} ingresos • {coverage.expensesDue.length} gastos</p>
               )}
-
             </CardContent>
           </Card>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-
           {/* Tendencia mensual */}
           <Card>
             <CardHeader>
               <CardTitle>Tendencia últimos 12 meses</CardTitle>
               <CardDescription>Evolución de ingresos, gastos y neto</CardDescription>
-
             </CardHeader>
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-
                   <LineChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
@@ -337,7 +326,6 @@ const Analytics = () => {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -353,15 +341,12 @@ const Analytics = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-
                     <Tooltip formatter={(value) => fmt(Number(value), userCurrency)} />
-
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
-
 
           {/* Presupuesto vs Real (Mes actual) */}
           <Card>
@@ -401,19 +386,16 @@ const Analytics = () => {
                     Variancia: {fmt(expMTD - planned.expenses, userCurrency)}
                   </div>
                 </div>
-
               </div>
             </CardContent>
           </Card>
         </div>
-
 
         {/* Análisis de Optimización (ponderado por pagos del mes) */}
         <Card>
           <CardHeader>
             <CardTitle>Análisis de Optimización</CardTitle>
             <CardDescription>Distribución por potencial (sobre lo efectivamente pagado este mes)</CardDescription>
-
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
@@ -434,9 +416,7 @@ const Analytics = () => {
                       <Cell fill="#FFBB28" />
                       <Cell fill="#00C49F" />
                     </Pie>
-
                     <Tooltip formatter={(value) => fmt(Number(value), userCurrency)} />
-
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -456,9 +436,7 @@ const Analytics = () => {
                           <span className="text-sm font-medium">{item.name}</span>
                         </div>
                         <Badge variant="outline">
-
                           {fmt(item.value as number, userCurrency)}
-
                         </Badge>
                       </div>
                     ))}

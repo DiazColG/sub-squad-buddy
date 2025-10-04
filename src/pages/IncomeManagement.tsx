@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 // removed beta gating
-
 import { DollarSign, Plus, TrendingUp, Calendar, Filter, Info, Trash2, Pencil, CheckCircle2, Undo2, History } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
@@ -12,7 +11,6 @@ import { useIncomes, type UpdateIncome } from '@/hooks/useIncomes';
 import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
 import AddIncomeForm from '@/components/AddIncomeForm';
 import IncomeHistory from '../components/IncomeHistory';
-
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,17 +18,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 const IncomeManagement = () => {
   // removed beta gating usage
-
-
   const [showAddForm, setShowAddForm] = useState(false);
   const { profile } = useUserProfile();
   const { formatCurrency: fmt, convertCurrency } = useCurrencyExchange();
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   const { incomes, loading, updateIncome, deleteIncome, isIncomeReceivedForMonth, markIncomeReceivedForMonth, clearIncomeReceivedForMonth } = useIncomes();
-
   const receiptsApi = useIncomeReceipts();
-
 
   // removed beta gating
 
@@ -77,16 +71,12 @@ const IncomeManagement = () => {
     }, 0);
 
   const [search, setSearch] = useState('');
-
   // category removed
-
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-
   const [editForm, setEditForm] = useState<{ name: string; amount: string; frequency: string; start_date: string; currency: string; description: string; is_active: boolean; payment_day: string | number | null; } | null>(null);
-
   const [showConverted, setShowConverted] = useState(false);
 
   const filteredIncomes = useMemo(() => {
@@ -95,8 +85,6 @@ const IncomeManagement = () => {
         if (filterStatus === 'active' && !i.is_active) return false;
         if (filterStatus === 'inactive' && i.is_active) return false;
       }
-
-
       if (filterFrequency !== 'all' && i.frequency !== filterFrequency) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -104,9 +92,7 @@ const IncomeManagement = () => {
       }
       return true;
     });
-
   }, [incomes, filterStatus, filterFrequency, search]);
-
 
   const handleToggleActive = async (id: string, current: boolean) => {
     await updateIncome(id, { is_active: !current } as UpdateIncome);
@@ -119,18 +105,15 @@ const IncomeManagement = () => {
   };
 
   const handleMarkReceived = async (id: string) => {
-
     const income = incomes.find(x => x.id === id);
     if (income) {
       const incomeCurrency = getIncomeCurrency(income.tags);
       await receiptsApi.upsertReceipt({ income_id: id, amount: income.amount, currency: incomeCurrency });
     }
-
     await markIncomeReceivedForMonth(id);
   };
 
   const handleUndoReceived = async (id: string) => {
-
     const now = new Date();
     const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const rec = receiptsApi.getByIncome(id).find(r => r.period_month === key);
@@ -139,15 +122,12 @@ const IncomeManagement = () => {
   };
 
   const openEdit = (income: { id: string; name: string; amount: number; frequency: string; start_date: string; description: string | null; is_active: boolean; payment_day: number | null; tags?: string[] | null; }) => {
-
     setEditId(income.id);
     setEditForm({
       name: income.name || '',
       amount: String(income.amount ?? ''),
       frequency: income.frequency || 'monthly',
       start_date: income.start_date || new Date().toISOString().slice(0,10),
-
-
       currency: getIncomeCurrency(income.tags),
       description: income.description || '',
       is_active: Boolean(income.is_active),
@@ -163,7 +143,6 @@ const IncomeManagement = () => {
       amount: Number(editForm.amount),
       frequency: editForm.frequency as UpdateIncome['frequency'],
       start_date: editForm.start_date,
-
       description: editForm.description || null,
       is_active: editForm.is_active,
       payment_day: editForm.payment_day ? Number(editForm.payment_day) : null,
@@ -175,10 +154,8 @@ const IncomeManagement = () => {
     setEditForm(null);
   };
 
-
   // History dialog state
   const [historyFor, setHistoryFor] = useState<string | null>(null);
-
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -265,9 +242,7 @@ const IncomeManagement = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
-
                 {/* categoría eliminada */}
-
                 <Select value={filterStatus} onValueChange={v => setFilterStatus(v as 'all' | 'active' | 'inactive')}>
                   <SelectTrigger className="w-36"><SelectValue placeholder="Estado" /></SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg">
@@ -312,7 +287,6 @@ const IncomeManagement = () => {
                         <p className="text-sm text-muted-foreground">
                           {income.description}
                         </p>
-
                         <div className="flex items-center gap-2 flex-wrap mt-1">
                           <Badge variant="outline" className="text-xs">
                             {getFrequencyLabel(income.frequency)}
@@ -349,7 +323,6 @@ const IncomeManagement = () => {
                               </>
                             );
                           })()}
-
                         </div>
                       </div>
                     </div>
@@ -362,37 +335,11 @@ const IncomeManagement = () => {
                         const ccy = showConverted ? userCurrency : incomeCcy;
                         return fmt(amountToShow, ccy);
                       })()}
-
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {getFrequencyLabel(income.frequency)}
-
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {getFrequencyLabel(income.frequency)}
                     </div>
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button size="icon" variant="ghost" title={income.is_active ? 'Desactivar' : 'Activar'} onClick={() => handleToggleActive(income.id, income.is_active)}>
-                      <Calendar className="h-4 w-4" />
-                    </Button>
-                    {isIncomeReceivedForMonth(income) ? (
-                      <Button size="icon" variant="ghost" title="Desmarcar recibido" onClick={() => handleUndoReceived(income.id)}>
-                        <Undo2 className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button size="icon" variant="ghost" title="Marcar recibido" onClick={() => handleMarkReceived(income.id)}>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      </Button>
-                    )}
-                    <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(income)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" title="Eliminar" onClick={() => handleDelete(income.id)}>
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-
                   <div className="ml-4 flex items-center gap-2">
                     <Button size="icon" variant="ghost" title="Cambiar estado" onClick={() => {/* cycle status through tags */ const tags=Array.isArray(income.tags)?income.tags:[]; const statusTag=tags.find(t=>t.startsWith('status:'))||'status:active'; const cur=statusTag.replace('status:',''); const next=cur==='active'?'paused':cur==='paused'?'ended':'active'; const filtered=tags.filter(t=>!t.startsWith('status:')); updateIncome(income.id,{ tags:[...filtered,`status:${next}`] } as UpdateIncome); }}>
                       <Info className="h-4 w-4" />
@@ -416,7 +363,6 @@ const IncomeManagement = () => {
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
-
                 </div>
               ))}
 
@@ -493,9 +439,7 @@ const IncomeManagement = () => {
                     <label className="text-sm">Fecha de inicio</label>
                     <Input type="date" value={editForm.start_date} onChange={e => setEditForm({ ...editForm, start_date: e.target.value })} />
                   </div>
-
                   {/* campo categoría eliminado */}
-
                   <div className="space-y-2">
                     <label className="text-sm">Día de pago</label>
                     <Input type="number" min={1} max={31} value={editForm.payment_day as string} onChange={e => setEditForm({ ...editForm, payment_day: e.target.value })} />
@@ -518,7 +462,6 @@ const IncomeManagement = () => {
           </DialogContent>
         </Dialog>
 
-
         {/* Historial dialog */}
         <Dialog open={Boolean(historyFor)} onOpenChange={(open) => { if (!open) setHistoryFor(null); }}>
           <DialogContent className="max-w-2xl">
@@ -534,7 +477,6 @@ const IncomeManagement = () => {
             )}
           </DialogContent>
         </Dialog>
-
       </div>
   );
 };

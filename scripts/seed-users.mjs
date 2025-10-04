@@ -17,7 +17,8 @@
  * Idempotente: si el usuario ya existe (email) lo reutiliza y evita reinserts duplicados.
  */
 
-import fetch from 'node-fetch';
+// Usa fetch global (Node 18+). Si usas Node <18 instala node-fetch y descomenta:
+// import fetch from 'node-fetch';
 
 // =============== Config ==================
 const SERVICE_ROLE_KEY = process.env.SERVICE_ROLE_KEY;

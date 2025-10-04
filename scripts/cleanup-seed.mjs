@@ -9,7 +9,8 @@
  *
  * DRY_RUN=1 para simular.
  */
-import fetch from 'node-fetch';
+// Usa fetch global (Node 18+). Para Node <18 instala node-fetch y descomenta:
+// import fetch from 'node-fetch';
 
 const SERVICE_ROLE_KEY = process.env.SERVICE_ROLE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;

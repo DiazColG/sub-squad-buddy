@@ -6,10 +6,12 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { TrendingUp, TrendingDown, PieChart as PieChartIcon, BarChart3, Target } from 'lucide-react';
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
-import { useIncomeReceipts } from "@/hooks/useIncomeReceipts";
+import { useIncomeReceipts } from "@/hooks/useIncomeReceipts"; // mantenido para futura vista cash
 import { useExpensePayments } from "@/hooks/useExpensePayments";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useExpenses } from "@/hooks/useExpenses";
+import { accruedSeries, accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
+import { monthKey } from '@/lib/dateUtils';
 import { useFinancialCategories } from "@/hooks/useFinancialCategories";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -24,12 +26,7 @@ const Analytics = () => {
   const { expenses } = useExpenses();
   const { categories } = useFinancialCategories();
 
-  const monthKey = (d: Date | string) => {
-    const date = typeof d === 'string' ? new Date(d) : d;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  };
+  // Usamos util central para consistencia
   const current = monthKey(new Date());
   const lastNMonths = useCallback((n: number) => {
     const res: string[] = [];
@@ -51,35 +48,11 @@ const Analytics = () => {
   };
 
   // Índices por período
-  const receiptsByPeriod = useMemo(() => {
-    const map = new Map<string, { amount: number; currency: string; income_id: string }[]>();
-    for (const r of receipts) {
-      const list = map.get(r.period_month) || [];
-      list.push({ amount: r.amount || 0, currency: r.currency || userCurrency, income_id: r.income_id });
-      map.set(r.period_month, list);
-    }
-    return map;
-  }, [receipts, userCurrency]);
-
-  const paymentsByPeriod = useMemo(() => {
-    const map = new Map<string, { amount: number; currency: string; expense_id: string }[]>();
-    for (const p of payments) {
-      const list = map.get(p.period_month) || [];
-      list.push({ amount: p.amount || 0, currency: p.currency || userCurrency, expense_id: p.expense_id });
-      map.set(p.period_month, list);
-    }
-    return map;
-  }, [payments, userCurrency]);
+  // Serie devengada (no dependemos ya de receipts/payments para los principales KPIs)
 
   // Serie mensual 12m (real)
   const months = useMemo(() => lastNMonths(12), [lastNMonths]);
-  const monthlySeries = useMemo(() => months.map(period => {
-    const incs = (receiptsByPeriod.get(period) || []).reduce((s, it) => s + convertCurrency(it.amount, it.currency, userCurrency), 0);
-    const exps = (paymentsByPeriod.get(period) || []).reduce((s, it) => s + convertCurrency(it.amount, it.currency, userCurrency), 0);
-    const net = incs - exps;
-    const savingsRate = incs > 0 ? (net / incs) : 0;
-    return { period, income: incs, expenses: exps, net, savingsRate };
-  }), [months, receiptsByPeriod, paymentsByPeriod, convertCurrency, userCurrency]);
+  const monthlySeries = useMemo(() => accruedSeries(incomes, expenses, months), [incomes, expenses, months]);
 
   // MTD (real)
   const mtd = useMemo(() => {
@@ -89,69 +62,39 @@ const Analytics = () => {
 
   // Presupuesto mensual (planned)
   const planned = useMemo(() => {
-    const plannedIncome = incomes
-      .filter(i => i.is_active)
-      .reduce((s, i) => {
-        const ccy = Array.isArray(i.tags) ? (i.tags.find(t => t.startsWith('currency:'))?.replace('currency:', '') || userCurrency) : userCurrency;
-        const monthly = normalizeMonthlyIncome(i.amount || 0, i.frequency || 'monthly');
-        return s + convertCurrency(monthly, ccy, userCurrency);
-      }, 0);
-    const plannedExpenses = expenses
-      .filter(e => e.is_recurring)
-      .reduce((s, e) => {
-        const monthly = (e.frequency === 'weekly') ? (e.amount || 0) * 4.33
-          : (e.frequency === 'daily') ? (e.amount || 0) * 30
-          : (e.frequency === 'yearly') ? (e.amount || 0) / 12
-          : (e.amount || 0);
-        const ccy = e.currency || userCurrency;
-        return s + convertCurrency(monthly, ccy, userCurrency);
-      }, 0);
-    return { income: plannedIncome, expenses: plannedExpenses, net: plannedIncome - plannedExpenses };
-  }, [incomes, expenses, convertCurrency, userCurrency]);
+    // Para devengado, "planned" coincide prácticamente con la suma mensual normalizada.
+    const income = accruedIncomeForMonth(incomes, new Date());
+    const expense = accruedExpenseForMonth(expenses, new Date());
+    return { income, expenses: expense, net: income - expense };
+  }, [incomes, expenses]);
 
   // Cobertura y alertas
-  const coverage = useMemo(() => {
-    const today = new Date();
-    const curKey = current;
-    const receivedIds = new Set(receipts.filter(r => r.period_month === curKey).map(r => r.income_id));
-    const incomesActive = incomes.filter(i => i.is_active);
-    const incomeCoverage = incomesActive.length > 0 ? (receivedIds.size / incomesActive.length) : 0;
-    const incomesDue = incomesActive.filter(i => i.payment_day && i.payment_day <= today.getDate() && !receivedIds.has(i.id)).slice(0, 5);
-
-    // Instancias de gastos del mes
-    const instancesThisMonth = expenses.filter(e => {
-      if (!Array.isArray(e.tags) || !e.tags.includes('recurrence-instance')) return false;
-      if (!e.transaction_date) return false;
-      return monthKey(e.transaction_date) === curKey;
-    });
-    const paidIds = new Set(payments.filter(p => p.period_month === curKey).map(p => p.expense_id));
-    const expenseCoverage = instancesThisMonth.length > 0 ? (instancesThisMonth.filter(e => paidIds.has(e.id)).length / instancesThisMonth.length) : 0;
-    const expensesDue = instancesThisMonth.filter(e => {
-      const d = e.transaction_date ? new Date(e.transaction_date) : today;
-      return d <= today && !paidIds.has(e.id);
-    }).slice(0, 5);
-
-    return { incomeCoverage, expenseCoverage, incomesDue, expensesDue };
-  }, [incomes, receipts, expenses, payments, current]);
+  const coverage: { incomeCoverage: number; expenseCoverage: number; incomesDue: unknown[]; expensesDue: unknown[] } = { incomeCoverage: 0, expenseCoverage: 0, incomesDue: [], expensesDue: [] }; // placeholder
 
   // Categorías (gasto real del mes actual por categoría)
   const categoryData = useMemo(() => {
-    const curPays = payments.filter(p => p.period_month === current);
+    // Distribución devengada: suma variable del mes + recurrente normalizado
+    const curKey = current;
     const byCat = new Map<string, number>();
-    for (const p of curPays) {
-      const exp = expenses.find(e => e.id === p.expense_id);
-      const catId = exp?.category_id || 'uncat';
-      const key = String(catId);
-      const valConv = convertCurrency(p.amount || 0, p.currency || userCurrency, userCurrency);
-      byCat.set(key, (byCat.get(key) || 0) + valConv);
+    for (const e of expenses) {
+      let value = 0;
+      if (e.is_recurring) {
+        value = accruedExpenseForMonth([e], new Date(curKey + '-01')); // usa normalización
+      } else if (e.transaction_date && monthKey(e.transaction_date) === curKey) {
+        value = e.amount || 0;
+      }
+      if (value > 0) {
+        const catId = e.category_id || 'uncat';
+        byCat.set(catId, (byCat.get(catId) || 0) + value);
+      }
     }
-    const total = Array.from(byCat.values()).reduce((a, b) => a + b, 0) || 1;
-    const items = Array.from(byCat.entries()).map(([id, value]) => {
-      const catName = categories.find(c => c.id === id)?.name || 'Sin categoría';
-      return { name: catName, value, percentage: ((value / total) * 100).toFixed(1) };
-    });
-    return items.sort((a, b) => b.value - a.value).slice(0, 6);
-  }, [payments, expenses, categories, convertCurrency, userCurrency, current]);
+    const total = Array.from(byCat.values()).reduce((a,b)=>a+b,0) || 1;
+    return Array.from(byCat.entries()).map(([id,value]) => ({
+      name: categories.find(c => c.id === id)?.name || 'Sin categoría',
+      value,
+      percentage: ((value/ total)*100).toFixed(1)
+    })).sort((a,b)=>b.value-a.value).slice(0,6);
+  }, [expenses, categories, current]);
 
   // Tendencia mensual para chart (últimos 12)
   const monthlyData = useMemo(() => monthlySeries.map(m => ({

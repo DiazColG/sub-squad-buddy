@@ -29,6 +29,7 @@ import { useExpensePayments } from '@/hooks/useExpensePayments';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { monthKey } from '@/lib/dateUtils';
+import { accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
 
 const FinanceDashboard = () => {
   // Removed user settings for beta gating
@@ -50,63 +51,26 @@ const FinanceDashboard = () => {
 
   const todayKey = monthKey(new Date());
 
-  const incomeMonthly = useMemo(() => {
-    // Suma desde receipts existentes del mes
-    const receiptSum = receipts
-      .filter(r => r.period_month === todayKey)
-      .reduce((s, r) => s + (r.amount || 0), 0);
-
-    // Suma derivada de ingresos marcados como recibidos vía tags (puede haber faltante de receipt)
-    const taggedSum = incomes
-      .filter(i => isIncomeReceivedForMonth?.(i, new Date()))
-      .reduce((s, i) => s + (i.amount || 0), 0);
-
-    if (receiptSum === 0 && taggedSum === 0) {
-      // Fallback: estimación por ingresos activos si aún no hay registros ni tags
-      const today = new Date();
-      return incomes
-        .filter(i => i.is_active && (!i.start_date || new Date(i.start_date) <= today))
-        .reduce((s, i) => s + (i.amount || 0), 0);
-    }
-
-    // Normalmente receipts deben reflejar la realidad; si faltan receipts pero hay tags, usamos el mayor valor.
-    return Math.max(receiptSum, taggedSum);
-  }, [receipts, incomes, todayKey, isIncomeReceivedForMonth]);
-
-  const expenseMonthly = useMemo(() => {
-    const paymentsMonth = payments.filter(p => p.period_month === todayKey);
-    const paymentByExpense = new Map(paymentsMonth.map(p => [p.expense_id, p]));
-    const paidTotal = paymentsMonth.reduce((s, p) => s + (p.amount || 0), 0);
-    const variableAndUnpaid = expenses.filter(e => {
-      const isFixed = e.expense_type === 'fixed';
-      if (isFixed && paymentByExpense.has(e.id)) return false;
-      return e.transaction_date?.startsWith(todayKey);
-    }).reduce((s, e) => s + (e.amount || 0), 0);
-    const combined = paidTotal + variableAndUnpaid;
-    if (combined > 0) return combined;
-    // Fallback: si no hay movimientos del mes, estimar usando la suma de gastos fijos (aprox mensual)
-    const estimatedFixed = expenses.filter(e => e.expense_type === 'fixed').reduce((s,e)=> s + (e.amount || 0),0);
-    return estimatedFixed;
-  }, [payments, expenses, todayKey]);
+  // NUEVA LÓGICA DEVENGADA: ignoramos receipts/payments para los totales principales
+  const referenceDate = useMemo(() => new Date(), []);
+  const incomeMonthly = useMemo(() => accruedIncomeForMonth(incomes, referenceDate), [incomes, referenceDate]);
+  const expenseMonthly = useMemo(() => accruedExpenseForMonth(expenses, referenceDate), [expenses, referenceDate]);
 
   const incomeAnnual = useMemo(() => {
     const year = new Date().getFullYear();
-    return receipts.filter(r => r.period_month.startsWith(year.toString()))
-      .reduce((s, r) => s + (r.amount || 0), 0);
-  }, [receipts]);
+    return Array.from({ length: 12 }).reduce((sum: number, _, idx) => {
+      const d = new Date(year, idx, 1);
+      return sum + accruedIncomeForMonth(incomes, d);
+    }, 0);
+  }, [incomes]);
 
   const expenseAnnual = useMemo(() => {
-    const year = new Date().getFullYear().toString();
-    const yearPayments = payments.filter(p => p.period_month.startsWith(year));
-    const paymentIds = new Set(yearPayments.map(p => p.expense_id));
-    const paidTotal = yearPayments.reduce((s, p) => s + (p.amount || 0), 0);
-    const variableAndUnpaid = expenses.filter(e => {
-      const isFixed = e.expense_type === 'fixed';
-      if (isFixed && paymentIds.has(e.id)) return false;
-      return e.transaction_date?.startsWith(year);
-    }).reduce((s, e) => s + (e.amount || 0), 0);
-    return paidTotal + variableAndUnpaid;
-  }, [payments, expenses]);
+    const year = new Date().getFullYear();
+    return Array.from({ length: 12 }).reduce((sum: number, _, idx) => {
+      const d = new Date(year, idx, 1);
+      return sum + accruedExpenseForMonth(expenses, d);
+    }, 0);
+  }, [expenses]);
 
   const currentBudget = getCurrentPeriod();
 
@@ -141,7 +105,8 @@ const FinanceDashboard = () => {
 
   const netIncome = financialData.income.monthly - financialData.expenses.monthly;
   const savingsRate = financialData.income.monthly > 0 ? (netIncome / financialData.income.monthly) * 100 : 0;
-  const loadingAny = loadingIncomes || loadingExpenses || loadingReceipts || loadingPayments;
+  // loading principal ahora depende sólo de incomes/expenses (los otros hooks quedan para futura vista “cobrado/pagado”)
+  const loadingAny = loadingIncomes || loadingExpenses;
 
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 

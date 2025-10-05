@@ -25,16 +25,30 @@ import FIRE from "./pages/FIRE";
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useState, useCallback } from 'react';
+import { DevPanel } from '@/components/dev/DevPanel';
+import { useDevPanelShortcut } from '@/components/dev/useDevPanelShortcut';
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
+const App = () => {
+  const [showDev, setShowDev] = useState(false);
+  const toggleDev = useCallback(() => setShowDev(v => !v), []);
+  useDevPanelShortcut(toggleDev);
+
+  const handleRefetchAll = useCallback(() => {
+    // Intencionalmente vacío por ahora: los hooks ya refrescan bajo demanda.
+    // Podríamos emitir un evento custom si quisiéramos forzar refetch centralizado.
+    window.dispatchEvent(new CustomEvent('devpanel:refetch'));
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
@@ -142,11 +156,19 @@ const App = () => (
           } />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          {import.meta.env.DEV && (
+            <DevPanel
+              visible={showDev}
+              onClose={() => setShowDev(false)}
+              onRefetchAll={handleRefetchAll}
+            />
+          )}
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

@@ -125,6 +125,39 @@ export function useBudgets() {
 
   const aggregated = useMemo(() => groupByPeriod(rows), [rows, groupByPeriod]);
 
+  const createBudget = useCallback(async (payload: Omit<RawBudgetRow, 'id' | 'spent_amount' | 'created_at' | 'updated_at' | 'financial_categories' | 'status' | 'alert_threshold' | 'notes'> & { alert_threshold?: number; notes?: string; status?: string }) => {
+    if (!payload.user_id) {
+      toast.error('Falta user_id');
+      return undefined;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert({
+          user_id: payload.user_id,
+          category_id: payload.category_id,
+          name: payload.name,
+          budgeted_amount: payload.budgeted_amount,
+          period_type: payload.period_type,
+          period_start: payload.period_start,
+          period_end: payload.period_end,
+          alert_threshold: payload.alert_threshold,
+          status: payload.status || 'active',
+          notes: payload.notes,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      setRows(prev => [data as unknown as RawBudgetRow, ...prev]);
+      toast.success('Presupuesto creado');
+      return data as unknown as RawBudgetRow;
+    } catch (e) {
+      console.error('Error creando presupuesto', e);
+      toast.error('No se pudo crear presupuesto');
+      return undefined;
+    }
+  }, []);
+
   const getCurrentPeriod = () => {
     const today = new Date();
     return aggregated.find(a => today >= new Date(a.period_start) && today <= new Date(a.period_end));
@@ -137,5 +170,6 @@ export function useBudgets() {
     aggregated,
     refetch: fetchBudgets,
     getCurrentPeriod,
+    createBudget,
   };
 }

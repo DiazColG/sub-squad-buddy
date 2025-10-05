@@ -244,6 +244,33 @@ async function seedForUser(user) {
   });
   await upsert('expense_payments', payments);
 
+  // 6. Budgets (presupuestos simples para el mes actual en 2 categorías)
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0,10);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth()+1, 0).toISOString().slice(0,10);
+  const budgetCats = expenseCats.slice(0,2);
+  const budgets = budgetCats.map(cat => ({
+    user_id: user.id,
+    category_id: cat.id,
+    name: `Presupuesto ${cat.name}`,
+    budgeted_amount: randAmount(150, 400),
+    spent_amount: 0,
+    period_type: 'monthly',
+    period_start: monthStart,
+    period_end: monthEnd,
+    status: 'active',
+    alert_threshold: 80,
+    notes: null,
+    tags: ['seed']
+  }));
+  await upsert('budgets', budgets);
+
+  // 7. Savings goals
+  const goals = [
+    { user_id: user.id, name: 'Fondo de Emergencia', target_amount: 1000, current_amount: randAmount(200,600), currency: 'USD', status: 'active', notes: null },
+    { user_id: user.id, name: 'Vacaciones', target_amount: 1500, current_amount: randAmount(100,400), currency: 'USD', status: 'active', notes: null }
+  ];
+  await upsert('savings_goals', goals);
+
   console.log(`  ✔ Categorías: ${catRows.length} | Ingresos: ${incomes.length} | Gastos: ${expenses.length} | Receipts: ${receipts.length} | Payments: ${payments.length}`);
 }
 

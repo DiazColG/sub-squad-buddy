@@ -16,49 +16,97 @@ export type Database = {
     Tables: {
       budgets: {
         Row: {
-          categories: Json | null
-          created_at: string | null
-          description: string | null
-          end_date: string | null
           id: string
-          is_active: boolean | null
-          name: string
-          period_type: string
-          start_date: string
-          total_budget: number
-          total_spent: number | null
-          updated_at: string | null
           user_id: string
+          category_id: string | null
+          name: string
+          budgeted_amount: number
+          spent_amount: number | null
+          period_type: string
+          period_start: string
+            period_end: string
+          status: string | null
+          alert_threshold: number | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
-          categories?: Json | null
-          created_at?: string | null
-          description?: string | null
-          end_date?: string | null
           id?: string
-          is_active?: boolean | null
-          name: string
-          period_type?: string
-          start_date: string
-          total_budget: number
-          total_spent?: number | null
-          updated_at?: string | null
           user_id: string
+          category_id?: string | null
+          name: string
+          budgeted_amount: number
+          spent_amount?: number | null
+          period_type?: string
+          period_start: string
+          period_end: string
+          status?: string | null
+          alert_threshold?: number | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
-          categories?: Json | null
-          created_at?: string | null
-          description?: string | null
-          end_date?: string | null
           id?: string
-          is_active?: boolean | null
-          name?: string
-          period_type?: string
-          start_date?: string
-          total_budget?: number
-          total_spent?: number | null
-          updated_at?: string | null
           user_id?: string
+          category_id?: string | null
+          name?: string
+          budgeted_amount?: number
+          spent_amount?: number | null
+          period_type?: string
+          period_start?: string
+          period_end?: string
+          status?: string | null
+          alert_threshold?: number | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      savings_goals: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          target_amount: number
+          current_amount: number | null
+          currency: string | null
+          start_date: string | null
+          target_date: string | null
+          status: string | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          target_amount: number
+          current_amount?: number | null
+          currency?: string | null
+          start_date?: string | null
+          target_date?: string | null
+          status?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          target_amount?: number
+          current_amount?: number | null
+          currency?: string | null
+          start_date?: string | null
+          target_date?: string | null
+          status?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }

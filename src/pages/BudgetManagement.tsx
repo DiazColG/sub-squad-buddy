@@ -10,6 +10,7 @@ import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { PiggyBank, Plus, DollarSign, TrendingDown, AlertTriangle } from 'lucide-react';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useFinancialCategories } from '@/hooks/useFinancialCategories';
+import { AddBudgetForm } from '@/components/AddBudgetForm';
 
 const BudgetManagement = () => {
   // removed beta gating usage
@@ -74,13 +75,7 @@ const BudgetManagement = () => {
             <h1 className="text-3xl font-bold text-gray-900">🐷 Gestión de Presupuestos</h1>
             <p className="text-gray-600 mt-1">Controla tus gastos por categorías</p>
           </div>
-          <Button 
-            onClick={() => setShowAddForm(true)} 
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nuevo Presupuesto
-          </Button>
+          <AddBudgetForm />
         </div>
 
         {/* Resumen del presupuesto activo */}

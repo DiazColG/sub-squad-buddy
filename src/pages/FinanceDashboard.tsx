@@ -27,6 +27,7 @@ import { useExpenses } from '@/hooks/useExpenses';
 import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
 import { useExpensePayments } from '@/hooks/useExpensePayments';
 import { useBudgets } from '@/hooks/useBudgets';
+import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 
 const FinanceDashboard = () => {
   // Removed user settings for beta gating
@@ -44,6 +45,7 @@ const FinanceDashboard = () => {
   const { receipts } = useIncomeReceipts();
   const { payments } = useExpensePayments();
   const { getCurrentPeriod } = useBudgets();
+  const { goals } = useSavingsGoals();
 
   const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   const todayKey = monthKey(new Date());
@@ -53,13 +55,16 @@ const FinanceDashboard = () => {
     .reduce((s, r) => s + (r.amount || 0), 0), [receipts, todayKey]);
 
   const expenseMonthly = useMemo(() => {
-    // Prefer payments (pagados) para fijos + sumar variables del mes (sin duplicar pagos ya registrados)
-    const paidExpenseIds = new Set(payments.filter(p => p.period_month === todayKey).map(p => p.expense_id));
-    const paidTotal = payments.filter(p => p.period_month === todayKey).reduce((s, p) => s + (p.amount || 0), 0);
-    const variableFromExpenses = expenses
-      .filter(e => !paidExpenseIds.has(e.id) && e.transaction_date?.startsWith(todayKey))
-      .reduce((s, e) => s + (e.amount || 0), 0);
-    return paidTotal + variableFromExpenses;
+    // Normalización: si existe payment para expense fijo, usar payment y NO sumar expense base.
+    const paymentsMonth = payments.filter(p => p.period_month === todayKey);
+    const paymentByExpense = new Map(paymentsMonth.map(p => [p.expense_id, p]));
+    const paidTotal = paymentsMonth.reduce((s, p) => s + (p.amount || 0), 0);
+    const variableAndUnpaid = expenses.filter(e => {
+      const isFixed = e.expense_type === 'fixed';
+      if (isFixed && paymentByExpense.has(e.id)) return false; // cubierto por payment
+      return e.transaction_date?.startsWith(todayKey);
+    }).reduce((s, e) => s + (e.amount || 0), 0);
+    return paidTotal + variableAndUnpaid;
   }, [payments, expenses, todayKey]);
 
   const incomeAnnual = useMemo(() => {
@@ -69,13 +74,25 @@ const FinanceDashboard = () => {
   }, [receipts]);
 
   const expenseAnnual = useMemo(() => {
-    const year = new Date().getFullYear();
-    const paymentsYear = payments.filter(p => p.period_month.startsWith(year.toString())).reduce((s, p) => s + (p.amount || 0), 0);
-    const expensesYear = expenses.filter(e => e.transaction_date?.startsWith(year.toString())).reduce((s, e) => s + (e.amount || 0), 0);
-    return paymentsYear + expensesYear; // simplificado (puede sobrecontar si no se normaliza fijos vs pagos)
+    const year = new Date().getFullYear().toString();
+    const yearPayments = payments.filter(p => p.period_month.startsWith(year));
+    const paymentIds = new Set(yearPayments.map(p => p.expense_id));
+    const paidTotal = yearPayments.reduce((s, p) => s + (p.amount || 0), 0);
+    const variableAndUnpaid = expenses.filter(e => {
+      const isFixed = e.expense_type === 'fixed';
+      if (isFixed && paymentIds.has(e.id)) return false;
+      return e.transaction_date?.startsWith(year);
+    }).reduce((s, e) => s + (e.amount || 0), 0);
+    return paidTotal + variableAndUnpaid;
   }, [payments, expenses]);
 
   const currentBudget = getCurrentPeriod();
+
+  const goalsActive = goals.filter(g => g.status === 'active');
+  const goalsCompleted = goals.filter(g => g.status === 'completed');
+  const goalsTargetTotal = goalsActive.reduce((s,g)=> s + (g.target_amount||0),0);
+  const goalsCurrentTotal = goalsActive.reduce((s,g)=> s + (g.current_amount||0),0);
+  const goalsProgress = goalsTargetTotal > 0 ? (goalsCurrentTotal / goalsTargetTotal) * 100 : 0;
 
   const financialData = {
     income: {
@@ -89,8 +106,8 @@ const FinanceDashboard = () => {
       categories: new Set(expenses.map(e => e.category_id)).size
     },
     savings: {
-      current: 0, // Placeholder hasta tener tabla de savings / goals
-      goals: { active: 0, completed: 0, total_target: 0, total_progress: 0 }
+      current: goalsCurrentTotal,
+      goals: { active: goalsActive.length, completed: goalsCompleted.length, total_target: goalsTargetTotal, total_progress: goalsProgress }
     },
     budget: {
       total: currentBudget?.total_budget || 0,

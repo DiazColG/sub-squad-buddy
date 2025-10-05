@@ -28,6 +28,7 @@ import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
 import { useExpensePayments } from '@/hooks/useExpensePayments';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { monthKey } from '@/lib/dateUtils';
 
 const FinanceDashboard = () => {
   // Removed user settings for beta gating
@@ -40,27 +41,37 @@ const FinanceDashboard = () => {
   // Removed beta gating check
 
   // Hooks con datos reales
-  const { incomes, loading: loadingIncomes } = useIncomes();
+  const { incomes, loading: loadingIncomes, isIncomeReceivedForMonth } = useIncomes();
   const { expenses, loading: loadingExpenses } = useExpenses();
   const { receipts, loading: loadingReceipts } = useIncomeReceipts();
   const { payments, loading: loadingPayments } = useExpensePayments();
   const { getCurrentPeriod } = useBudgets();
   const { goals } = useSavingsGoals();
 
-  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   const todayKey = monthKey(new Date());
 
   const incomeMonthly = useMemo(() => {
-    const fromReceipts = receipts
+    // Suma desde receipts existentes del mes
+    const receiptSum = receipts
       .filter(r => r.period_month === todayKey)
       .reduce((s, r) => s + (r.amount || 0), 0);
-    if (fromReceipts > 0) return fromReceipts;
-    // Fallback: sumar ingresos activos aproximados cuando aún no hay receipts (primer mes, etc.)
-    const today = new Date();
-    return incomes
-      .filter(i => i.is_active && (!i.start_date || new Date(i.start_date) <= today))
-      .reduce((s,i)=> s + (i.amount || 0),0);
-  }, [receipts, incomes, todayKey]);
+
+    // Suma derivada de ingresos marcados como recibidos vía tags (puede haber faltante de receipt)
+    const taggedSum = incomes
+      .filter(i => isIncomeReceivedForMonth?.(i, new Date()))
+      .reduce((s, i) => s + (i.amount || 0), 0);
+
+    if (receiptSum === 0 && taggedSum === 0) {
+      // Fallback: estimación por ingresos activos si aún no hay registros ni tags
+      const today = new Date();
+      return incomes
+        .filter(i => i.is_active && (!i.start_date || new Date(i.start_date) <= today))
+        .reduce((s, i) => s + (i.amount || 0), 0);
+    }
+
+    // Normalmente receipts deben reflejar la realidad; si faltan receipts pero hay tags, usamos el mayor valor.
+    return Math.max(receiptSum, taggedSum);
+  }, [receipts, incomes, todayKey, isIncomeReceivedForMonth]);
 
   const expenseMonthly = useMemo(() => {
     const paymentsMonth = payments.filter(p => p.period_month === todayKey);

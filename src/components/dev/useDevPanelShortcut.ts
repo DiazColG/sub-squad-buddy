@@ -1,40 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-// Hook para manejar el atajo Alt + G D C (secuencial dentro de 2.5s)
+// Versión simplificada: sólo un atajo directo Ctrl + Alt + D (toggle panel)
+// Se eliminó la secuencia previa para evitar conflicto con Alt+G.
 export function useDevPanelShortcut(onToggle: () => void) {
-  const [sequence, setSequence] = useState<string[]>([]);
-
   useEffect(() => {
-    if (!import.meta.env.DEV) return; // sólo en desarrollo
-
+    if (!import.meta.env.DEV) return;
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (['INPUT','TEXTAREA','SELECT'].includes(target.tagName) || target.isContentEditable) return;
-      const required = ['g','d','c'];
-      if (!e.altKey) {
-        if (sequence.length) setSequence([]);
-        return;
-      }
-      const key = e.key.toLowerCase();
-      if (!required.includes(key)) return;
-      e.preventDefault();
-      const next = [...sequence, key];
-      if (next.length > required.length) next.shift();
-      setSequence(next);
-      if (required.every((r, idx) => next[idx] === r)) {
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
         onToggle();
-        setSequence([]);
       }
     };
-
-    const resetTimer = setInterval(() => {
-      if (sequence.length) setSequence([]);
-    }, 2500);
-
     window.addEventListener('keydown', handler);
-    return () => {
-      window.removeEventListener('keydown', handler);
-      clearInterval(resetTimer);
-    };
-  }, [sequence, onToggle]);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onToggle]);
 }
+
+

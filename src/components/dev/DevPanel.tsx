@@ -108,7 +108,7 @@ export const DevPanel: React.FC<DevPanelProps> = ({ visible, onClose, onRefetchA
           goals: goals.goals.slice(0,10)
         }, null, 2)}</pre>
       </details>
-      <p className="text-[10px] text-muted-foreground mt-2">Shortcut: Alt + G D C (secuencial). No se incluye en producción.</p>
+  <p className="text-[10px] text-muted-foreground mt-2">Shortcut: Ctrl + Alt + D (toggle). Sólo en desarrollo.</p>
     </div>
   );
 };

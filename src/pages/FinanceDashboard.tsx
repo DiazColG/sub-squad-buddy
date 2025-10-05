@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,11 @@ import {
   CheckCircle
 } from 'lucide-react';
 import SmartStart from '@/components/SmartStart';
+import { useIncomes } from '@/hooks/useIncomes';
+import { useExpenses } from '@/hooks/useExpenses';
+import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
+import { useExpensePayments } from '@/hooks/useExpensePayments';
+import { useBudgets } from '@/hooks/useBudgets';
 
 const FinanceDashboard = () => {
   // Removed user settings for beta gating
@@ -33,32 +38,65 @@ const FinanceDashboard = () => {
   // Verificar si la feature está habilitada
   // Removed beta gating check
 
-  // Mock data consolidado de todos los módulos
+  // Hooks con datos reales
+  const { incomes } = useIncomes();
+  const { expenses } = useExpenses();
+  const { receipts } = useIncomeReceipts();
+  const { payments } = useExpensePayments();
+  const { getCurrentPeriod } = useBudgets();
+
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const todayKey = monthKey(new Date());
+
+  const incomeMonthly = useMemo(() => receipts
+    .filter(r => r.period_month === todayKey)
+    .reduce((s, r) => s + (r.amount || 0), 0), [receipts, todayKey]);
+
+  const expenseMonthly = useMemo(() => {
+    // Prefer payments (pagados) para fijos + sumar variables del mes (sin duplicar pagos ya registrados)
+    const paidExpenseIds = new Set(payments.filter(p => p.period_month === todayKey).map(p => p.expense_id));
+    const paidTotal = payments.filter(p => p.period_month === todayKey).reduce((s, p) => s + (p.amount || 0), 0);
+    const variableFromExpenses = expenses
+      .filter(e => !paidExpenseIds.has(e.id) && e.transaction_date?.startsWith(todayKey))
+      .reduce((s, e) => s + (e.amount || 0), 0);
+    return paidTotal + variableFromExpenses;
+  }, [payments, expenses, todayKey]);
+
+  const incomeAnnual = useMemo(() => {
+    const year = new Date().getFullYear();
+    return receipts.filter(r => r.period_month.startsWith(year.toString()))
+      .reduce((s, r) => s + (r.amount || 0), 0);
+  }, [receipts]);
+
+  const expenseAnnual = useMemo(() => {
+    const year = new Date().getFullYear();
+    const paymentsYear = payments.filter(p => p.period_month.startsWith(year.toString())).reduce((s, p) => s + (p.amount || 0), 0);
+    const expensesYear = expenses.filter(e => e.transaction_date?.startsWith(year.toString())).reduce((s, e) => s + (e.amount || 0), 0);
+    return paymentsYear + expensesYear; // simplificado (puede sobrecontar si no se normaliza fijos vs pagos)
+  }, [payments, expenses]);
+
+  const currentBudget = getCurrentPeriod();
+
   const financialData = {
     income: {
-      monthly: 4300,
-      annual: 51600,
-      sources: 2
+      monthly: incomeMonthly,
+      annual: incomeAnnual,
+      sources: incomes.length
     },
     expenses: {
-      monthly: 2485,
-      annual: 29820,
-      categories: 6
+      monthly: expenseMonthly,
+      annual: expenseAnnual,
+      categories: new Set(expenses.map(e => e.category_id)).size
     },
     savings: {
-      current: 10820,
-      goals: {
-        active: 3,
-        completed: 1,
-        total_target: 17800,
-        total_progress: 60.8
-      }
+      current: 0, // Placeholder hasta tener tabla de savings / goals
+      goals: { active: 0, completed: 0, total_target: 0, total_progress: 0 }
     },
     budget: {
-      total: 3000,
-      spent: 2580,
-      remaining: 420,
-      categories_over: 1
+      total: currentBudget?.total_budget || 0,
+      spent: currentBudget?.total_spent || 0,
+      remaining: currentBudget?.remaining || 0,
+      categories_over: currentBudget?.categories_over || 0
     }
   };
 

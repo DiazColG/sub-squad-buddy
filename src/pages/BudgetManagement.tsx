@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,9 @@ import { Progress } from '@/components/ui/progress';
 // removed beta gating
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
-import { PiggyBank, Plus, DollarSign, TrendingDown, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { PiggyBank, Plus, DollarSign, TrendingDown, AlertTriangle } from 'lucide-react';
+import { useBudgets } from '@/hooks/useBudgets';
+import { useFinancialCategories } from '@/hooks/useFinancialCategories';
 
 const BudgetManagement = () => {
   // removed beta gating usage
@@ -16,119 +18,12 @@ const BudgetManagement = () => {
   const { formatCurrency: fmt } = useCurrencyExchange();
   const userCurrency = profile?.primary_display_currency || 'USD';
 
-  // Mock data para demostración
-  const mockBudgets = [
-    {
-      id: '1',
-      name: 'Presupuesto Mensual Octubre',
-      description: 'Presupuesto para gastos del mes de octubre',
-      total_budget: 3000,
-      start_date: '2024-10-01',
-      end_date: '2024-10-31',
-      is_active: true,
-      categories: [
-        {
-          id: '1',
-          name: 'Alimentación',
-          budgeted_amount: 800,
-          spent_amount: 650,
-          color: '#10B981'
-        },
-        {
-          id: '2', 
-          name: 'Transporte',
-          budgeted_amount: 400,
-          spent_amount: 420,
-          color: '#F59E0B'
-        },
-        {
-          id: '3',
-          name: 'Entretenimiento',
-          budgeted_amount: 300,
-          spent_amount: 180,
-          color: '#8B5CF6'
-        },
-        {
-          id: '4',
-          name: 'Vivienda',
-          budgeted_amount: 1200,
-          spent_amount: 1200,
-          color: '#EF4444'
-        },
-        {
-          id: '5',
-          name: 'Salud',
-          budgeted_amount: 200,
-          spent_amount: 85,
-          color: '#06B6D4'
-        },
-        {
-          id: '6',
-          name: 'Varios',
-          budgeted_amount: 100,
-          spent_amount: 45,
-          color: '#84CC16'
-        }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Presupuesto Mensual Septiembre',
-      description: 'Presupuesto para gastos del mes de septiembre',
-      total_budget: 2800,
-      start_date: '2024-09-01',
-      end_date: '2024-09-30',
-      is_active: false,
-      categories: [
-        {
-          id: '1',
-          name: 'Alimentación',
-          budgeted_amount: 750,
-          spent_amount: 780,
-          color: '#10B981'
-        },
-        {
-          id: '2',
-          name: 'Transporte', 
-          budgeted_amount: 350,
-          spent_amount: 320,
-          color: '#F59E0B'
-        },
-        {
-          id: '3',
-          name: 'Entretenimiento',
-          budgeted_amount: 200,
-          spent_amount: 240,
-          color: '#8B5CF6'
-        },
-        {
-          id: '4',
-          name: 'Vivienda',
-          budgeted_amount: 1200,
-          spent_amount: 1200,
-          color: '#EF4444'
-        },
-        {
-          id: '5',
-          name: 'Salud',
-          budgeted_amount: 200,
-          spent_amount: 150,
-          color: '#06B6D4'
-        },
-        {
-          id: '6',
-          name: 'Varios',
-          budgeted_amount: 100,
-          spent_amount: 110,
-          color: '#84CC16'
-        }
-      ]
-    }
-  ];
+  const { aggregated, loading: loadingBudgets, getCurrentPeriod } = useBudgets();
+  const { getExpenseCategories } = useFinancialCategories();
+  const expenseCats = getExpenseCategories();
 
-  // removed beta gating
-
-  const activeBudget = mockBudgets.find(budget => budget.is_active);
+  // Periodo actual (si existe en DB)
+  const activeBudget = useMemo(() => getCurrentPeriod(), [getCurrentPeriod]);
   
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 
@@ -151,7 +46,7 @@ const BudgetManagement = () => {
     return { status: 'good', color: 'text-green-600', badge: 'En rango' };
   };
 
-  if (!activeBudget) {
+  if (!loadingBudgets && !activeBudget) {
     return (
         <div className="container mx-auto p-6 space-y-6">
           <div className="text-center py-12">
@@ -166,11 +61,10 @@ const BudgetManagement = () => {
         </div>
     );
   }
-
-  const totalSpent = activeBudget.categories.reduce((sum, cat) => sum + cat.spent_amount, 0);
-  const totalBudgeted = activeBudget.categories.reduce((sum, cat) => sum + cat.budgeted_amount, 0);
-  const remainingBudget = totalBudgeted - totalSpent;
-  const overBudgetCategories = activeBudget.categories.filter(cat => cat.spent_amount > cat.budgeted_amount);
+  const totalSpent = activeBudget?.total_spent || 0;
+  const totalBudgeted = activeBudget?.total_budget || 0;
+  const remainingBudget = activeBudget?.remaining || 0;
+  const overBudgetCategories = activeBudget?.categories.filter(cat => cat.spent_amount > cat.budgeted_amount) || [];
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -257,9 +151,9 @@ const BudgetManagement = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>{activeBudget.name}</CardTitle>
+                <CardTitle>Presupuesto Actual</CardTitle>
                 <CardDescription>
-                  {formatDate(activeBudget.start_date)} - {formatDate(activeBudget.end_date)}
+                  {activeBudget?.period_start && formatDate(activeBudget.period_start)} - {activeBudget?.period_end && formatDate(activeBudget.period_end)}
                 </CardDescription>
               </div>
               <Badge className="bg-green-100 text-green-800">Activo</Badge>
@@ -294,7 +188,7 @@ const BudgetManagement = () => {
                         <div className="flex items-center space-x-2">
                           <div 
                             className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: category.color }}
+                            style={{ backgroundColor: category.color || '#3b82f6' }}
                           ></div>
                           <h3 className="font-medium text-gray-900">{category.name}</h3>
                         </div>
@@ -359,29 +253,19 @@ const BudgetManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockBudgets.filter(budget => !budget.is_active).map((budget) => {
-                const totalSpentHistory = budget.categories.reduce((sum, cat) => sum + cat.spent_amount, 0);
-                const totalBudgetedHistory = budget.categories.reduce((sum, cat) => sum + cat.budgeted_amount, 0);
-                const performancePercentage = (totalSpentHistory / totalBudgetedHistory) * 100;
-                
+              {aggregated.filter(a => a !== activeBudget).map(history => {
+                const performance = history.total_budget > 0 ? (history.total_spent / history.total_budget) * 100 : 0;
                 return (
-                  <div 
-                    key={budget.id} 
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
+                  <div key={`${history.period_start}-${history.period_end}`} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <h3 className="font-medium text-gray-900">{budget.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {formatDate(budget.start_date)} - {formatDate(budget.end_date)}
-                      </p>
+                      <h3 className="font-medium text-gray-900">{formatDate(history.period_start)} - {formatDate(history.period_end)}</h3>
+                      <p className="text-sm text-gray-600">{history.categories.length} categorías</p>
                     </div>
                     <div className="text-right">
                       <div className="text-lg font-semibold">
-                        {formatCurrency(totalSpentHistory)} / {formatCurrency(totalBudgetedHistory)}
+                        {formatCurrency(history.total_spent)} / {formatCurrency(history.total_budget)}
                       </div>
-                      <div className={`text-sm ${performancePercentage > 100 ? 'text-red-600' : 'text-green-600'}`}>
-                        {performancePercentage.toFixed(1)}% del presupuesto
-                      </div>
+                      <div className={`text-sm ${performance > 100 ? 'text-red-600' : 'text-green-600'}`}>{performance.toFixed(1)}% del presupuesto</div>
                     </div>
                   </div>
                 );

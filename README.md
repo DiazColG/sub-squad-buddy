@@ -50,15 +50,40 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+## Tech Stack
 
-This project is built with:
+Core:
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn-ui
+- Supabase (Auth, PostgREST, RLS)
+- React Query (data fetching layer en evolución, algunos hooks manuales también)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Utilities / Otros:
+- Lucide Icons, Zod, react-hook-form
+
+Desactivado temporalmente:
+- Servicio de emails (Resend) → removida la dependencia; `emailService` es un no-op seguro.
+
+## Supabase & Tipos
+
+Generar tipos actualizados (requiere instalar CLI de supabase y exportar SUPABASE_PROJECT_ID):
+
+```sh
+export SUPABASE_PROJECT_ID=<id-proyecto>
+npm run gen:types
+```
+
+Esto sobreescribe `src/integrations/supabase/types.ts`. Después de regenerar:
+- Revisar discrepancias con tipos manuales (ej. budgets) y eliminar comentarios de deuda si ya coinciden.
+- Commit controlado para facilitar diff.
+
+## Email Service (Feedback)
+
+El archivo `src/lib/emailService.ts` es actualmente un no-op (retorna true sin enviar). Para reactivarlo:
+1. `npm install resend`
+2. Añadir `VITE_RESEND_API_KEY` en entorno build.
+3. Reimplementar la función `sendFeedbackNotification` con la lógica removida (ver historial git).
+4. Evitar exponer claves sensibles (usar solo las públicas si aplica o un edge function en Supabase).
 
 ## How can I deploy this project?
 

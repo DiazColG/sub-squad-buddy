@@ -131,6 +131,20 @@ export function useBudgets() {
       return undefined;
     }
     try {
+      // Validación: evitar dos presupuestos de la misma categoría que se solapen en el período
+      if (payload.category_id) {
+        const { data: existing, error: existingError } = await supabase
+          .from('budgets')
+          .select('id, period_start, period_end')
+          .eq('user_id', payload.user_id)
+          .eq('category_id', payload.category_id)
+          .lte('period_start', payload.period_end)  // start <= new_end
+          .gte('period_end', payload.period_start); // end >= new_start
+        if (!existingError && existing && existing.length > 0) {
+          toast.error('Ya existe un presupuesto para esa categoría en este período');
+          return undefined;
+        }
+      }
       const { data, error } = await supabase
         .from('budgets')
         .insert({

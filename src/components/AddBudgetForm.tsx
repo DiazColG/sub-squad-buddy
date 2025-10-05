@@ -37,7 +37,7 @@ export const AddBudgetForm: React.FC<Props> = ({ onCreated }) => {
     setLoading(true);
     const numeric = parseFloat(amount);
     try {
-      await createBudget({
+      const created = await createBudget({
         user_id: user.id,
         category_id: categoryId,
         name: name || 'Presupuesto Mensual',
@@ -49,11 +49,13 @@ export const AddBudgetForm: React.FC<Props> = ({ onCreated }) => {
         notes: null,
         status: 'active'
       });
-      setOpen(false);
-      setAmount('');
-      setCategoryId('');
-      setName('');
-      if (onCreated) onCreated();
+      if (created) {
+        setOpen(false);
+        setAmount('');
+        setCategoryId('');
+        setName('');
+        if (onCreated) onCreated();
+      }
     } finally {
       setLoading(false);
     }

@@ -16,6 +16,8 @@ import {
   , Flame
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 
 import {
   Sidebar,
@@ -62,6 +64,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
+  const { signOut, user } = useAuth();
 
   const isActive = (path: string) => currentPath === path;
   const getNavClassName = (path: string) =>
@@ -166,6 +169,21 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {/* Logout (sticky bottom) */}
+      {user && (
+        <div className="mt-auto border-t p-2">
+          <button
+            onClick={signOut}
+            className={`w-full flex items-center gap-2 text-sm px-2 py-2 rounded-md transition-colors ${
+              isCollapsed ? "justify-center" : "justify-start"
+            } hover:bg-destructive/10 text-muted-foreground hover:text-destructive`}
+            title="Cerrar sesión"
+          >
+            <LogOut className="h-4 w-4" />
+            {!isCollapsed && <span>Cerrar sesión</span>}
+          </button>
+        </div>
+      )}
     </Sidebar>
   );
 }

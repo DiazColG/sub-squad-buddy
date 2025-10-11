@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,14 @@ import {
   CheckCircle
 } from 'lucide-react';
 import SmartStart from '@/components/SmartStart';
+import { useIncomes } from '@/hooks/useIncomes';
+import { useExpenses } from '@/hooks/useExpenses';
+import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
+import { useExpensePayments } from '@/hooks/useExpensePayments';
+import { useBudgets } from '@/hooks/useBudgets';
+import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { monthKey } from '@/lib/dateUtils';
+import { accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
 
 const FinanceDashboard = () => {
   // Removed user settings for beta gating
@@ -33,37 +41,72 @@ const FinanceDashboard = () => {
   // Verificar si la feature está habilitada
   // Removed beta gating check
 
-  // Mock data consolidado de todos los módulos
+  // Hooks con datos reales
+  const { incomes, loading: loadingIncomes, isIncomeReceivedForMonth } = useIncomes();
+  const { expenses, loading: loadingExpenses } = useExpenses();
+  const { receipts, loading: loadingReceipts } = useIncomeReceipts();
+  const { payments, loading: loadingPayments } = useExpensePayments();
+  const { getCurrentPeriod } = useBudgets();
+  const { goals } = useSavingsGoals();
+
+  const todayKey = monthKey(new Date());
+
+  // NUEVA LÓGICA DEVENGADA: ignoramos receipts/payments para los totales principales
+  const referenceDate = useMemo(() => new Date(), []);
+  const incomeMonthly = useMemo(() => accruedIncomeForMonth(incomes, referenceDate), [incomes, referenceDate]);
+  const expenseMonthly = useMemo(() => accruedExpenseForMonth(expenses, referenceDate), [expenses, referenceDate]);
+
+  const incomeAnnual = useMemo(() => {
+    const year = new Date().getFullYear();
+    return Array.from({ length: 12 }).reduce((sum: number, _, idx) => {
+      const d = new Date(year, idx, 1);
+      return sum + accruedIncomeForMonth(incomes, d);
+    }, 0);
+  }, [incomes]);
+
+  const expenseAnnual = useMemo(() => {
+    const year = new Date().getFullYear();
+    return Array.from({ length: 12 }).reduce((sum: number, _, idx) => {
+      const d = new Date(year, idx, 1);
+      return sum + accruedExpenseForMonth(expenses, d);
+    }, 0);
+  }, [expenses]);
+
+  const currentBudget = getCurrentPeriod();
+
+  const goalsActive = goals.filter(g => g.status === 'active');
+  const goalsCompleted = goals.filter(g => g.status === 'completed');
+  const goalsTargetTotal = goalsActive.reduce((s,g)=> s + (g.target_amount||0),0);
+  const goalsCurrentTotal = goalsActive.reduce((s,g)=> s + (g.current_amount||0),0);
+  const goalsProgress = goalsTargetTotal > 0 ? (goalsCurrentTotal / goalsTargetTotal) * 100 : 0;
+
   const financialData = {
     income: {
-      monthly: 4300,
-      annual: 51600,
-      sources: 2
+      monthly: incomeMonthly,
+      annual: incomeAnnual,
+      sources: incomes.length
     },
     expenses: {
-      monthly: 2485,
-      annual: 29820,
-      categories: 6
+      monthly: expenseMonthly,
+      annual: expenseAnnual,
+      categories: new Set(expenses.map(e => e.category_id)).size
     },
     savings: {
-      current: 10820,
-      goals: {
-        active: 3,
-        completed: 1,
-        total_target: 17800,
-        total_progress: 60.8
-      }
+      current: goalsCurrentTotal,
+      goals: { active: goalsActive.length, completed: goalsCompleted.length, total_target: goalsTargetTotal, total_progress: goalsProgress }
     },
     budget: {
-      total: 3000,
-      spent: 2580,
-      remaining: 420,
-      categories_over: 1
+      total: currentBudget?.total_budget || 0,
+      spent: currentBudget?.total_spent || 0,
+      remaining: currentBudget?.remaining || 0,
+      categories_over: currentBudget?.categories_over || 0
     }
   };
 
   const netIncome = financialData.income.monthly - financialData.expenses.monthly;
-  const savingsRate = (netIncome / financialData.income.monthly) * 100;
+  const savingsRate = financialData.income.monthly > 0 ? (netIncome / financialData.income.monthly) * 100 : 0;
+  // loading principal ahora depende sólo de incomes/expenses (los otros hooks quedan para futura vista “cobrado/pagado”)
+  const loadingAny = loadingIncomes || loadingExpenses;
 
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
 
@@ -128,7 +171,7 @@ const FinanceDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(financialData.income.monthly)}
+                {loadingAny ? '...' : formatCurrency(financialData.income.monthly)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {financialData.income.sources} fuentes activas
@@ -143,7 +186,7 @@ const FinanceDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(financialData.expenses.monthly)}
+                {loadingAny ? '...' : formatCurrency(financialData.expenses.monthly)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {financialData.expenses.categories} categorías
@@ -158,7 +201,7 @@ const FinanceDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${netIncome >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                {formatCurrency(netIncome)}
+                {loadingAny ? '...' : formatCurrency(netIncome)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Tasa de ahorro: {savingsRate.toFixed(1)}%
@@ -173,7 +216,7 @@ const FinanceDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {formatCurrency(financialData.savings.current)}
+                {loadingAny ? '...' : formatCurrency(financialData.savings.current)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {financialData.savings.goals.active} metas activas
@@ -260,30 +303,30 @@ const FinanceDashboard = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Gasto del Presupuesto</span>
                 <span className="text-sm text-gray-600">
-                  {((financialData.budget.spent / financialData.budget.total) * 100).toFixed(1)}%
+                  {financialData.budget.total > 0 ? ((financialData.budget.spent / financialData.budget.total) * 100).toFixed(1) : '0.0'}%
                 </span>
               </div>
               <Progress 
-                value={(financialData.budget.spent / financialData.budget.total) * 100} 
+                value={financialData.budget.total > 0 ? (financialData.budget.spent / financialData.budget.total) * 100 : 0} 
                 className="w-full" 
               />
               
               <div className="grid grid-cols-3 gap-4 pt-2">
                 <div className="text-center">
                   <div className="text-lg font-bold text-blue-600">
-                    {formatCurrency(financialData.budget.total)}
+                    {loadingAny ? '...' : formatCurrency(financialData.budget.total)}
                   </div>
                   <div className="text-xs text-gray-600">Presupuesto</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-red-600">
-                    {formatCurrency(financialData.budget.spent)}
+                    {loadingAny ? '...' : formatCurrency(financialData.budget.spent)}
                   </div>
                   <div className="text-xs text-gray-600">Gastado</div>
                 </div>
                 <div className="text-center">
-                  <div className={`text-lg font-bold ${financialData.budget.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(financialData.budget.remaining)}
+                  <div className={`text-lg font-bold ${financialData.budget.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}> 
+                    {loadingAny ? '...' : formatCurrency(financialData.budget.remaining)}
                   </div>
                   <div className="text-xs text-gray-600">Restante</div>
                 </div>
@@ -295,6 +338,18 @@ const FinanceDashboard = () => {
                   <AlertDescription className="text-sm">
                     {financialData.budget.categories_over} categoría(s) excedida(s)
                   </AlertDescription>
+                </Alert>
+              )}
+              {!loadingAny && financialData.income.monthly === 0 && incomes.length === 0 && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-sm">Aún no registraste ingresos este mes. Usa "Registrar Ingreso" para empezar.</AlertDescription>
+                </Alert>
+              )}
+              {!loadingAny && financialData.expenses.monthly === 0 && expenses.length === 0 && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-sm">No hay gastos este mes. Agrega uno con "Registrar Gasto".</AlertDescription>
                 </Alert>
               )}
             </CardContent>

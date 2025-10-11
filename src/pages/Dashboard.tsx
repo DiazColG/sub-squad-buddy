@@ -8,8 +8,10 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useIncomes } from "@/hooks/useIncomes";
-import { useIncomeReceipts } from "@/hooks/useIncomeReceipts";
+import { useIncomeReceipts } from "@/hooks/useIncomeReceipts"; // Mantengo para secciones históricas / futuro cash view
 import { useExpensePayments } from "@/hooks/useExpensePayments";
+import { accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
+import { monthKey } from '@/lib/dateUtils';
 
 const Dashboard = () => {
   const { profile } = useUserProfile();
@@ -20,62 +22,28 @@ const Dashboard = () => {
   const { receipts, loading: recLoading, upsertReceipt } = useIncomeReceipts();
   const { payments, loading: payLoading } = useExpensePayments();
 
-  const monthKey = (d: Date | string) => {
-    const date = typeof d === 'string' ? new Date(d) : d;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  };
+  // Usar util central
   const now = useMemo(() => new Date(), []);
   const current = monthKey(now);
   const prev = (() => { const d = new Date(now.getFullYear(), now.getMonth()-1, 1); return monthKey(d); })();
 
   // Real MTD from normalized tables
-  const incMTD = useMemo(() => {
-    return receipts
-      .filter(r => r.period_month === current)
-      .reduce((s, r) => s + convertCurrency(r.amount || 0, r.currency || userCurrency, userCurrency), 0);
-  }, [receipts, current, convertCurrency, userCurrency]);
-
-  const expMTD = useMemo(() => {
-    return payments
-      .filter(p => p.period_month === current)
-      .reduce((s, p) => s + convertCurrency(p.amount || 0, p.currency || userCurrency, userCurrency), 0);
-  }, [payments, current, convertCurrency, userCurrency]);
+  const incMTD = useMemo(() => accruedIncomeForMonth(incomes, now), [incomes, now]);
+  const expMTD = useMemo(() => accruedExpenseForMonth(expenses, now), [expenses, now]);
 
   const netMTD = incMTD - expMTD;
   const srMTD = incMTD > 0 ? netMTD / incMTD : 0;
 
   const netPrev = useMemo(() => {
-    const incPrev = receipts.filter(r => r.period_month === prev)
-      .reduce((s, r) => s + convertCurrency(r.amount || 0, r.currency || userCurrency, userCurrency), 0);
-    const expPrev = payments.filter(p => p.period_month === prev)
-      .reduce((s, p) => s + convertCurrency(p.amount || 0, p.currency || userCurrency, userCurrency), 0);
-    return incPrev - expPrev;
-  }, [receipts, payments, prev, convertCurrency, userCurrency]);
+    const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    return accruedIncomeForMonth(incomes, prevDate) - accruedExpenseForMonth(expenses, prevDate);
+  }, [incomes, expenses, now]);
 
   // Coverage and pending
-  const coverage = useMemo(() => {
-    const today = now;
-    const receivedIds = new Set(receipts.filter(r => r.period_month === current).map(r => r.income_id));
-    const incomesActive = incomes.filter(i => i.is_active);
-    const incomeCoverage = incomesActive.length > 0 ? (receivedIds.size / incomesActive.length) : 0;
-    const incomesDue = incomesActive.filter(i => i.payment_day && i.payment_day <= today.getDate() && !receivedIds.has(i.id)).slice(0, 5);
-
-    const instancesThisMonth = expenses.filter(e => {
-      if (!Array.isArray(e.tags) || !e.tags.includes('recurrence-instance')) return false;
-      if (!e.transaction_date) return false;
-      return monthKey(e.transaction_date) === current;
-    });
-    const paidIds = new Set(payments.filter(p => p.period_month === current).map(p => p.expense_id));
-    const expenseCoverage = instancesThisMonth.length > 0 ? (instancesThisMonth.filter(e => paidIds.has(e.id)).length / instancesThisMonth.length) : 0;
-    const expensesDue = instancesThisMonth.filter(e => {
-      const d = e.transaction_date ? new Date(e.transaction_date) : today;
-      return d <= today && !paidIds.has(e.id);
-    }).slice(0, 5);
-
-    return { incomeCoverage, expenseCoverage, incomesDue, expensesDue };
-  }, [incomes, receipts, expenses, payments, current, now]);
+  // Placeholder futuro: cobertura de cobros/pagos (se elimina de la métrica principal devengada)
+  type IncomeLike = typeof incomes[number];
+  type ExpenseLike = typeof expenses[number];
+  const coverage: { incomeCoverage: number; expenseCoverage: number; incomesDue: IncomeLike[]; expensesDue: ExpenseLike[] } = { incomeCoverage: 0, expenseCoverage: 0, incomesDue: [], expensesDue: [] };
 
   // Latest movements
   const latestReceipts = useMemo(() => {
@@ -85,7 +53,7 @@ const Dashboard = () => {
     return [...payments].sort((a, b) => new Date(b.paid_at || b.created_at || '').getTime() - new Date(a.paid_at || a.created_at || '').getTime()).slice(0, 5);
   }, [payments]);
 
-  const loading = expLoading || incLoading || recLoading || payLoading || ratesLoading;
+  const loading = expLoading || incLoading || ratesLoading; // receipts/payments ya no bloquean métricas devengadas
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -95,7 +63,7 @@ const Dashboard = () => {
   }
 
   // Empty state for new users
-  if (expenses.length === 0 && receipts.length === 0 && payments.length === 0) {
+  if (expenses.length === 0 && incomes.length === 0) {
     return (
       <div className="container mx-auto p-6 space-y-8">
         <div className="flex items-center justify-between">

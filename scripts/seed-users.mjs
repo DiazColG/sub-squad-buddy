@@ -26,6 +26,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const COUNT = parseInt(process.env.SEED_USER_COUNT || '10', 10);
 const PASSWORD = process.env.SEED_PASSWORD || 'SeedUser123!';
 
+if (process.env.NODE_ENV === 'production') {
+  console.error('ABORT: Seed script bloqueado en producción.');
+  process.exit(1);
+}
+
 if (!SERVICE_ROLE_KEY || !SUPABASE_URL) {
   console.error('ERROR: Debes definir SERVICE_ROLE_KEY y SUPABASE_URL en variables de entorno.');
   process.exit(1);

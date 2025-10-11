@@ -9,12 +9,12 @@ export type SavingsGoalInsert = Database['public']['Tables']['savings_goals']['I
 export type SavingsGoalUpdate = Database['public']['Tables']['savings_goals']['Update'];
 
 export function useSavingsGoals() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [goals, setGoals] = useState<SavingsGoalRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchGoals = useCallback(async () => {
-    if (!user) return;
+    if (authLoading || !user) return; // esperamos a auth estable
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -22,15 +22,27 @@ export function useSavingsGoals() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      setGoals((data as SavingsGoalRow[]) || []);
+      if (error) {
+        // Si la tabla no existe en el entorno (404/does not exist) tratamos como lista vacía sin toastear
+        const msg = String(error.message || '').toLowerCase();
+        if (msg.includes('not found') || msg.includes('does not exist')) {
+          console.warn('[useSavingsGoals] Table not found, returning empty list.');
+          setGoals([]);
+        } else {
+          throw error;
+        }
+      } else {
+        setGoals((data as SavingsGoalRow[]) || []);
+      }
     } catch (e) {
       console.error('Error fetching savings goals', e);
-      toast.error('No se pudieron cargar las metas');
+      if (!authLoading && user) {
+        toast.error('No se pudieron cargar las metas');
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const createGoal = useCallback(async (payload: Omit<SavingsGoalInsert, 'user_id'>) => {
     if (!user) return undefined;
@@ -89,5 +101,5 @@ export function useSavingsGoals() {
 
   useEffect(() => { fetchGoals(); }, [fetchGoals]);
 
-  return { goals, loading, refetch: fetchGoals, createGoal, updateGoal, deleteGoal };
+  return { goals, loading: authLoading || loading, refetch: fetchGoals, createGoal, updateGoal, deleteGoal, authLoading };
 }

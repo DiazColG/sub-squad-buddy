@@ -14,12 +14,12 @@ import { AddBudgetForm } from '@/components/AddBudgetForm';
 
 const BudgetManagement = () => {
   // removed beta gating usage
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Eliminado showAddForm: el formulario se maneja internamente via DialogTrigger
   const { profile } = useUserProfile();
   const { formatCurrency: fmt } = useCurrencyExchange();
   const userCurrency = profile?.primary_display_currency || 'USD';
 
-  const { aggregated, loading: loadingBudgets, getCurrentPeriod } = useBudgets();
+  const { aggregated, loading: loadingBudgets, getCurrentPeriod, localMode, localCount, syncLocalToServer } = useBudgets();
   const { getExpenseCategories } = useFinancialCategories();
   const expenseCats = getExpenseCategories();
 
@@ -37,6 +37,7 @@ const BudgetManagement = () => {
   };
 
   const getSpentPercentage = (spent: number, budgeted: number) => {
+    if (!budgeted || budgeted <= 0) return 0;
     return (spent / budgeted) * 100;
   };
 
@@ -47,6 +48,20 @@ const BudgetManagement = () => {
     return { status: 'good', color: 'text-green-600', badge: 'En rango' };
   };
 
+  if (loadingBudgets) {
+    return (
+      <div className="container mx-auto p-6 space-y-6 animate-pulse">
+        <div className="h-8 w-64 bg-muted rounded" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-28 bg-muted rounded" />
+          ))}
+        </div>
+        <div className="h-96 bg-muted rounded" />
+      </div>
+    );
+  }
+
   if (!loadingBudgets && !activeBudget) {
     return (
         <div className="container mx-auto p-6 space-y-6">
@@ -54,10 +69,9 @@ const BudgetManagement = () => {
             <PiggyBank className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">No hay presupuestos activos</h2>
             <p className="text-gray-600 mb-6">Crea tu primer presupuesto para comenzar a controlar tus gastos</p>
-            <Button onClick={() => setShowAddForm(true)} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Crear Presupuesto
-            </Button>
+            <div className="flex justify-center">
+              <AddBudgetForm triggerLabel="Crear Presupuesto" />
+            </div>
           </div>
         </div>
     );
@@ -65,7 +79,9 @@ const BudgetManagement = () => {
   const totalSpent = activeBudget?.total_spent || 0;
   const totalBudgeted = activeBudget?.total_budget || 0;
   const remainingBudget = activeBudget?.remaining || 0;
-  const overBudgetCategories = activeBudget?.categories.filter(cat => cat.spent_amount > cat.budgeted_amount) || [];
+  const categories = activeBudget?.categories ?? [];
+  const categoriesForGrid = categories.filter(c => c.category_id !== null);
+  const overBudgetCategories = categoriesForGrid.filter(cat => cat.spent_amount > cat.budgeted_amount);
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -74,6 +90,16 @@ const BudgetManagement = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">🐷 Gestión de Presupuestos</h1>
             <p className="text-gray-600 mt-1">Controla tus gastos por categorías</p>
+            {localMode && (
+              <div className="mt-2 inline-flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 px-2 py-1 rounded">
+                Modo offline: guardamos los presupuestos localmente hasta sincronizar con el servidor
+                {localCount > 0 && (
+                  <Button size="sm" variant="outline" className="ml-2" onClick={async ()=>{ await syncLocalToServer(); }}>
+                    Sincronizar ({localCount})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
           <AddBudgetForm />
         </div>
@@ -105,7 +131,7 @@ const BudgetManagement = () => {
                 {formatCurrency(totalSpent)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {((totalSpent / totalBudgeted) * 100).toFixed(1)}% del presupuesto
+                {(getSpentPercentage(totalSpent, totalBudgeted)).toFixed(1)}% del presupuesto
               </p>
             </CardContent>
           </Card>
@@ -135,7 +161,7 @@ const BudgetManagement = () => {
                 {overBudgetCategories.length}
               </div>
               <p className="text-xs text-muted-foreground">
-                de {activeBudget.categories.length} categorías
+                de {categoriesForGrid.length} categorías
               </p>
             </CardContent>
           </Card>
@@ -172,7 +198,7 @@ const BudgetManagement = () => {
 
               {/* Categorías */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeBudget.categories.map((category) => {
+                {categoriesForGrid.map((category) => {
                   const percentage = getSpentPercentage(category.spent_amount, category.budgeted_amount);
                   const status = getBudgetStatus(category.spent_amount, category.budgeted_amount);
                   const remaining = category.budgeted_amount - category.spent_amount;

@@ -804,6 +804,154 @@ export type Database = {
         ]
       }
       ,
+      clients: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          tax_id: string | null
+          tax_condition: string | null
+          email: string | null
+          phone: string | null
+          address: string | null
+          default_currency: string | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          tax_id?: string | null
+          tax_condition?: string | null
+          email?: string | null
+          phone?: string | null
+          address?: string | null
+          default_currency?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          tax_id?: string | null
+          tax_condition?: string | null
+          email?: string | null
+          phone?: string | null
+          address?: string | null
+          default_currency?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ,
+      invoices: {
+        Row: {
+          id: string
+          user_id: string
+          client_id: string
+          issue_date: string
+          due_date: string
+          currency: string
+          concept: string
+          total_amount: number
+          status: string
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_id: string
+          issue_date: string
+          due_date: string
+          currency: string
+          concept: string
+          total_amount: number
+          status?: string
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_id?: string
+          issue_date?: string
+          due_date?: string
+          currency?: string
+          concept?: string
+          total_amount?: number
+          status?: string
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey",
+            columns: ["client_id"],
+            isOneToOne: false,
+            referencedRelation: "clients",
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ,
+      invoice_payments: {
+        Row: {
+          id: string
+          user_id: string
+          invoice_id: string
+          paid_at: string
+          amount: number
+          currency: string
+          method: string | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          invoice_id: string
+          paid_at?: string
+          amount: number
+          currency: string
+          method?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          invoice_id?: string
+          paid_at?: string
+          amount?: number
+          currency?: string
+          method?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey",
+            columns: ["invoice_id"],
+            isOneToOne: false,
+            referencedRelation: "invoices",
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ,
       fire_scenarios: {
         Row: {
           id: string

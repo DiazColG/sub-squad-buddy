@@ -13,7 +13,7 @@ import {
   Target,
   PiggyBank,
   BookOpen
-  , Flame
+  , Flame, Lightbulb
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +48,7 @@ const financeNavItems = [
   { title: "Resumen Financiero", url: "/finance", icon: DollarSign },
   { title: "Metas de Ahorro", url: "/finance/goals", icon: Target },
   { title: "Presupuestos", url: "/finance/budgets", icon: PiggyBank },
+  { title: "Toma de Decisiones", url: "/finance/decisions", icon: Lightbulb },
   { title: "FIRE", url: "/fire", icon: Flame },
 ];
 

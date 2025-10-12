@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 // removed beta gating
 import { useFinancialCategories } from '@/hooks/useFinancialCategories';
-import { CreditCard, Plus, TrendingDown, Calendar, Filter, Info, DollarSign } from 'lucide-react';
+import { CreditCard, Plus, TrendingDown, Calendar, Filter, Info, DollarSign, Trash2 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useExpenses } from '@/hooks/useExpenses';
@@ -23,7 +23,7 @@ const ExpenseManagement = () => {
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Mock data para demostración
-  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid, undoExpensePaid } = useExpenses();
+  const { expenses, loading, getPendingRecurringForMonth, confirmRecurringForMonth, confirmAllPendingForMonth, getDueSoonRecurring, snoozeRecurringTemplate, isExpensePaid, markExpensePaid, undoExpensePaid, deleteExpense } = useExpenses();
   const paymentsApi = useExpensePayments();
   const pendingRecurrent = getPendingRecurringForMonth(new Date());
   const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
@@ -72,6 +72,11 @@ const ExpenseManagement = () => {
 
   const formatCurrency = (amount: number) => fmt(amount, userCurrency);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const handleDelete = async (id: string) => {
+    const confirmed = typeof window !== 'undefined' ? window.confirm('¿Eliminar permanentemente este gasto? Esta acción no se puede deshacer.') : true;
+    if (!confirmed) return;
+    await deleteExpense(id);
+  };
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -275,6 +280,9 @@ const ExpenseManagement = () => {
                       ) : isExpensePaid(expense) ? (
                         <Button size="sm" variant="ghost" onClick={() => undoExpensePaid(expense.id)}>Deshacer</Button>
                       ) : null}
+                      <Button size="icon" variant="ghost" title="Eliminar" onClick={() => handleDelete(expense.id)}>
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
                   </div>
                 </div>

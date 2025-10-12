@@ -12,7 +12,7 @@ type Props = {
 };
 
 const IncomeHistory: React.FC<Props> = ({ incomeId, userCurrency }) => {
-  const { getByIncome, upsertReceipt, deleteReceipt } = useIncomeReceipts();
+  const { getByIncome, upsertReceipt, deleteReceipt, updateReceipt } = useIncomeReceipts();
   const receipts = getByIncome(incomeId);
   const [form, setForm] = useState<{ amount: string; currency: string; received_at: string }>({
     amount: '',
@@ -51,12 +51,22 @@ const IncomeHistory: React.FC<Props> = ({ incomeId, userCurrency }) => {
           <div className="p-4 text-sm text-muted-foreground">Sin registros aún.</div>
         )}
         {sorted.map(rec => (
-          <div key={rec.id} className="p-3 flex items-center justify-between">
-            <div>
+          <div key={rec.id} className="p-3 flex items-center justify-between gap-3">
+            <div className="flex-1">
               <div className="text-sm font-medium">{rec.period_month}</div>
-              <div className="text-xs text-muted-foreground">Recibido: {rec.received_at}</div>
+              <div className="text-xs text-muted-foreground">Recibido</div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Input type="date" defaultValue={rec.received_at} onBlur={e => { const v = e.target.value; if (v && v !== rec.received_at) updateReceipt(rec.id, { received_at: v }); }} className="w-40" />
+              <Input type="number" step="0.01" defaultValue={String(rec.amount)} onBlur={e => { const v = Number(e.target.value); if (!Number.isNaN(v) && v !== rec.amount) updateReceipt(rec.id, { amount: v }); }} className="w-32" />
+              <Select value={rec.currency} onValueChange={v => { if (v && v !== rec.currency) updateReceipt(rec.id, { currency: v }); }}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg">
+                  {['USD','EUR','ARS','GBP','CAD','AUD','JPY','CHF','SEK','NOK','DKK','BRL','MXN'].map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="text-sm font-semibold">{new Intl.NumberFormat(undefined, { style: 'currency', currency: rec.currency }).format(rec.amount)}</div>
               <Button size="icon" variant="ghost" title="Eliminar" onClick={() => deleteReceipt(rec.id)}>
                 <Trash2 className="h-4 w-4 text-red-600" />

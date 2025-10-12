@@ -10,6 +10,8 @@ import { useCurrencyExchange } from '@/hooks/useCurrencyExchange';
 import { useIncomes, type UpdateIncome } from '@/hooks/useIncomes';
 import { useIncomeReceipts } from '@/hooks/useIncomeReceipts';
 import AddIncomeForm from '@/components/AddIncomeForm';
+import AddSalariedIncomeForm from '@/components/AddSalariedIncomeForm';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import IncomeHistory from '../components/IncomeHistory';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -385,9 +387,20 @@ const IncomeManagement = () => {
 
         {showAddForm && (
           <div className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-50">
-            <div className="max-w-2xl w-full">
-              <AddIncomeForm onSuccess={() => setShowAddForm(false)} />
-              <div className="flex justify-end mt-2">
+            <div className="max-w-2xl w-full space-y-2">
+              <Tabs defaultValue="salaried">
+                <TabsList>
+                  <TabsTrigger value="salaried">Relación de dependencia</TabsTrigger>
+                  <TabsTrigger value="independent">Independiente</TabsTrigger>
+                </TabsList>
+                <TabsContent value="salaried">
+                  <AddSalariedIncomeForm onSuccess={() => setShowAddForm(false)} />
+                </TabsContent>
+                <TabsContent value="independent">
+                  <AddIncomeForm onSuccess={() => setShowAddForm(false)} />
+                </TabsContent>
+              </Tabs>
+              <div className="flex justify-end">
                 <Button variant="outline" onClick={() => setShowAddForm(false)}>Cerrar</Button>
               </div>
             </div>

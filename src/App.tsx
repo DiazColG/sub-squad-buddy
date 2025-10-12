@@ -21,6 +21,7 @@ import BudgetManagement from "./pages/BudgetManagement";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import UseCases from "./pages/UseCases";
 import FIRE from "./pages/FIRE";
+import DecisionMaking from "./pages/DecisionMaking";
 
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
@@ -109,6 +110,13 @@ const App = () => {
             <ProtectedRoute>
               <Layout>
                 <FinanceDashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/finance/decisions" element={
+            <ProtectedRoute>
+              <Layout>
+                <DecisionMaking />
               </Layout>
             </ProtectedRoute>
           } />

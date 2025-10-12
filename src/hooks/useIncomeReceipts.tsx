@@ -87,6 +87,26 @@ export function useIncomeReceipts() {
     }
   }, []);
 
+  const updateReceipt = useCallback(async (id: string, updates: Partial<IncomeReceiptUpdate>) => {
+    try {
+      const { data, error } = await supabase
+        .from('income_receipts')
+        .update(updates)
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      const row = data as IncomeReceiptRow;
+      setReceipts(prev => prev.map(r => (r.id === id ? row : r)));
+      toast.success('Registro actualizado');
+      return row;
+    } catch (err) {
+      console.error('Error updating income receipt:', err);
+      toast.error('No se pudo actualizar el registro');
+      return undefined;
+    }
+  }, []);
+
   const isRecordedForMonth = useCallback((incomeId: string, ref: Date = new Date()) => {
     const key = monthKey(ref);
     return receipts.some(r => r.income_id === incomeId && r.period_month === key);
@@ -94,5 +114,5 @@ export function useIncomeReceipts() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  return { receipts, loading, refetch: fetchAll, getByIncome, getByMonth, upsertReceipt, deleteReceipt, isRecordedForMonth };
+  return { receipts, loading, refetch: fetchAll, getByIncome, getByMonth, upsertReceipt, deleteReceipt, updateReceipt, isRecordedForMonth };
 }

@@ -35,7 +35,7 @@ const FinanceDashboard = () => {
   // Removed user settings for beta gating
   const navigate = useNavigate();
   const { profile } = useUserProfile();
-  const { formatCurrency: fmt } = useCurrencyExchange();
+  const { formatCurrency: fmt, convertCurrency } = useCurrencyExchange();
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   // Verificar si la feature está habilitada
@@ -53,16 +53,63 @@ const FinanceDashboard = () => {
 
   // NUEVA LÓGICA DEVENGADA: ignoramos receipts/payments para los totales principales
   const referenceDate = useMemo(() => new Date(), []);
-  const incomeMonthly = useMemo(() => accruedIncomeForMonth(incomes, referenceDate), [incomes, referenceDate]);
+  // Ingresos: convertir cada fuente a la moneda del perfil antes de sumar
+  const incomeMonthly = useMemo(() => {
+    const key = monthKey(referenceDate);
+    const endOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
+    let total = 0;
+    for (const i of incomes) {
+      if (!i.is_active) continue;
+      if (i.start_date && new Date(i.start_date) > endOfMonth) continue;
+      if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== key) continue;
+      const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+      // normalizeRecurring inline para evitar importar otra función
+      const base = (() => {
+        const amount = i.amount || 0;
+        switch (i.frequency) {
+          case 'weekly': return amount * 4.33;
+          case 'biweekly': return amount * 2.17;
+          case 'quarterly': return amount / 3;
+          case 'yearly': return amount / 12;
+          case 'daily': return amount * 30;
+          default: return amount;
+        }
+      })();
+      total += convertCurrency(base, fromCcy, userCurrency);
+    }
+    return total;
+  }, [incomes, referenceDate, userCurrency, convertCurrency]);
   const expenseMonthly = useMemo(() => accruedExpenseForMonth(expenses, referenceDate), [expenses, referenceDate]);
 
   const incomeAnnual = useMemo(() => {
     const year = new Date().getFullYear();
     return Array.from({ length: 12 }).reduce((sum: number, _, idx) => {
       const d = new Date(year, idx, 1);
-      return sum + accruedIncomeForMonth(incomes, d);
+      // mismo método que monthly pero por cada mes del año
+      const key = monthKey(d);
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      let monthTotal = 0;
+      for (const i of incomes) {
+        if (!i.is_active) continue;
+        if (i.start_date && new Date(i.start_date) > endOfMonth) continue;
+        if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== key) continue;
+        const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+        const base = (() => {
+          const amount = i.amount || 0;
+          switch (i.frequency) {
+            case 'weekly': return amount * 4.33;
+            case 'biweekly': return amount * 2.17;
+            case 'quarterly': return amount / 3;
+            case 'yearly': return amount / 12;
+            case 'daily': return amount * 30;
+            default: return amount;
+          }
+        })();
+        monthTotal += convertCurrency(base, fromCcy, userCurrency);
+      }
+      return sum + monthTotal;
     }, 0);
-  }, [incomes]);
+  }, [incomes, userCurrency, convertCurrency]);
 
   const expenseAnnual = useMemo(() => {
     const year = new Date().getFullYear();
@@ -73,6 +120,64 @@ const FinanceDashboard = () => {
   }, [expenses]);
 
   const currentBudget = getCurrentPeriod();
+
+  // Presupuesto devengado: recalcular "spent" usando gastos devengados dentro del periodo del presupuesto
+  const budgetAccrued = useMemo(() => {
+    if (!currentBudget) return { spent: 0, categories_over: 0 };
+    const start = currentBudget.period_start;
+    const end = currentBudget.period_end;
+    if (!start || !end) return { spent: 0, categories_over: 0 };
+
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    // Lista de meses incluidas en el periodo
+    const months: string[] = [];
+    const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const last = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    while (cursor <= last) { months.push(monthKey(cursor)); cursor.setMonth(cursor.getMonth() + 1); }
+
+    const computeAccruedForCategory = (categoryId: string | null) => {
+      let total = 0;
+      for (const period of months) {
+        const ref = new Date(period + '-01');
+        const endOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+        for (const e of expenses) {
+          if (categoryId !== null && e.category_id !== categoryId) continue;
+          const fromCcy = e.currency || userCurrency;
+          if (e.is_recurring) {
+            if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+            const base = (() => { // normalizeRecurring inline
+              const amount = e.amount || 0;
+              switch (e.frequency) {
+                case 'weekly': return amount * 4.33;
+                case 'biweekly': return amount * 2.17;
+                case 'quarterly': return amount / 3;
+                case 'yearly': return amount / 12;
+                case 'daily': return amount * 30;
+                default: return amount;
+              }
+            })();
+            total += convertCurrency(base, fromCcy, userCurrency);
+          } else if (e.transaction_date && monthKey(e.transaction_date) === period) {
+            const tx = new Date(e.transaction_date);
+            if (tx < startDate || tx > endDate) continue;
+            total += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+          }
+        }
+      }
+      return total;
+    };
+
+    // Suma total y categorías excedidas contra presupuesto asignado
+    let spent = 0;
+    let categories_over = 0;
+    for (const c of currentBudget.categories) {
+      const accrued = computeAccruedForCategory(c.category_id);
+      spent += accrued;
+      if (c.category_id !== null && accrued > (c.budgeted_amount || 0)) categories_over++;
+    }
+    return { spent, categories_over };
+  }, [currentBudget, expenses, userCurrency, convertCurrency]);
 
   const goalsActive = goals.filter(g => g.status === 'active');
   const goalsCompleted = goals.filter(g => g.status === 'completed');
@@ -97,9 +202,9 @@ const FinanceDashboard = () => {
     },
     budget: {
       total: currentBudget?.total_budget || 0,
-      spent: currentBudget?.total_spent || 0,
-      remaining: currentBudget?.remaining || 0,
-      categories_over: currentBudget?.categories_over || 0
+      spent: budgetAccrued.spent,
+      remaining: (currentBudget?.total_budget || 0) - budgetAccrued.spent,
+      categories_over: budgetAccrued.categories_over
     }
   };
 

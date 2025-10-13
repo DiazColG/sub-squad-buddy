@@ -6,11 +6,11 @@ import { Calendar, DollarSign, TrendingUp, TrendingDown, Plus, Package, Target, 
 import { Link } from "react-router-dom";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useExpenses, type ExpenseRow } from "@/hooks/useExpenses";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeReceipts } from "@/hooks/useIncomeReceipts"; // Mantengo para secciones históricas / futuro cash view
 import { useExpensePayments } from "@/hooks/useExpensePayments";
-import { accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
+import { accruedIncomeForMonth, accruedExpenseForMonth, normalizeRecurring } from '@/lib/accrual';
 import { monthKey } from '@/lib/dateUtils';
 
 const Dashboard = () => {
@@ -28,16 +28,76 @@ const Dashboard = () => {
   const prev = (() => { const d = new Date(now.getFullYear(), now.getMonth()-1, 1); return monthKey(d); })();
 
   // Real MTD from normalized tables
-  const incMTD = useMemo(() => accruedIncomeForMonth(incomes, now), [incomes, now]);
-  const expMTD = useMemo(() => accruedExpenseForMonth(expenses, now), [expenses, now]);
+  // Ingresos: convertimos cada fuente a la moneda del perfil antes de sumar
+  const incMTD = useMemo(() => {
+    const key = monthKey(now);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    let total = 0;
+    for (const i of incomes) {
+      if (!i.is_active) continue;
+      if (i.start_date && new Date(i.start_date) > endOfMonth) continue;
+      if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== key) continue;
+      const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+      const base = normalizeRecurring(i.amount || 0, i.frequency);
+      total += convertCurrency(base, fromCcy, userCurrency);
+    }
+    return total;
+  }, [incomes, now, userCurrency, convertCurrency]);
+  const expMTD = useMemo(() => {
+    // Convertimos cada gasto a la moneda del perfil antes de sumar
+    const key = monthKey(now);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    let total = 0;
+    for (const e of expenses as ExpenseRow[]) {
+      const fromCcy = e.currency || userCurrency;
+      if (e.is_recurring) {
+        if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+        const base = accruedExpenseForMonth([{ amount: e.amount, frequency: e.frequency, is_recurring: true, transaction_date: e.transaction_date }], now);
+        total += convertCurrency(base, fromCcy, userCurrency);
+        continue;
+      }
+      if (e.transaction_date && monthKey(e.transaction_date) === key) {
+        total += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+      }
+    }
+    return total;
+  }, [expenses, now, userCurrency, convertCurrency]);
 
   const netMTD = incMTD - expMTD;
   const srMTD = incMTD > 0 ? netMTD / incMTD : 0;
 
   const netPrev = useMemo(() => {
     const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
-    return accruedIncomeForMonth(incomes, prevDate) - accruedExpenseForMonth(expenses, prevDate);
-  }, [incomes, expenses, now]);
+    // Ingresos del mes anterior convertidos a moneda del perfil
+    const keyPrevIncome = monthKey(prevDate);
+    const endPrevIncome = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
+    let incomePrev = 0;
+    for (const i of incomes) {
+      if (!i.is_active) continue;
+      if (i.start_date && new Date(i.start_date) > endPrevIncome) continue;
+      if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== keyPrevIncome) continue;
+      const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+      const base = normalizeRecurring(i.amount || 0, i.frequency);
+      incomePrev += convertCurrency(base, fromCcy, userCurrency);
+    }
+    // Convertir gastos del mes anterior a moneda del perfil
+    const keyPrevExp = monthKey(prevDate);
+    const endPrev = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
+    let expPrev = 0;
+    for (const e of expenses as ExpenseRow[]) {
+      const fromCcy = e.currency || userCurrency;
+      if (e.is_recurring) {
+        if (e.transaction_date && new Date(e.transaction_date) > endPrev) continue;
+        const base = accruedExpenseForMonth([{ amount: e.amount, frequency: e.frequency, is_recurring: true, transaction_date: e.transaction_date }], prevDate);
+        expPrev += convertCurrency(base, fromCcy, userCurrency);
+        continue;
+      }
+      if (e.transaction_date && monthKey(e.transaction_date) === keyPrevExp) {
+        expPrev += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+      }
+    }
+    return incomePrev - expPrev;
+  }, [incomes, expenses, now, userCurrency, convertCurrency]);
 
   // Coverage and pending
   // Placeholder futuro: cobertura de cobros/pagos (se elimina de la métrica principal devengada)

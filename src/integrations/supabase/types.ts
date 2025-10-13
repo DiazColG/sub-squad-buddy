@@ -117,6 +117,11 @@ export type Database = {
           card_brand: string | null
           card_last_digits: string
           card_type: string
+          currency: string | null
+          payment_method: string | null
+          auto_debit_account_id: string | null
+          closing_day: number | null
+          statement_due_day: number | null
           cardholder_name: string | null
           created_at: string
           enable_expiry_alert: boolean | null
@@ -132,6 +137,11 @@ export type Database = {
           card_brand?: string | null
           card_last_digits: string
           card_type: string
+          currency?: string | null
+          payment_method?: string | null
+          auto_debit_account_id?: string | null
+          closing_day?: number | null
+          statement_due_day?: number | null
           cardholder_name?: string | null
           created_at?: string
           enable_expiry_alert?: boolean | null
@@ -147,6 +157,11 @@ export type Database = {
           card_brand?: string | null
           card_last_digits?: string
           card_type?: string
+          currency?: string | null
+          payment_method?: string | null
+          auto_debit_account_id?: string | null
+          closing_day?: number | null
+          statement_due_day?: number | null
           cardholder_name?: string | null
           created_at?: string
           enable_expiry_alert?: boolean | null
@@ -799,154 +814,6 @@ export type Database = {
             columns: ["expense_id"],
             isOneToOne: false,
             referencedRelation: "expenses",
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      ,
-      clients: {
-        Row: {
-          id: string
-          user_id: string
-          name: string
-          tax_id: string | null
-          tax_condition: string | null
-          email: string | null
-          phone: string | null
-          address: string | null
-          default_currency: string | null
-          notes: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          tax_id?: string | null
-          tax_condition?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          default_currency?: string | null
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          tax_id?: string | null
-          tax_condition?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          default_currency?: string | null
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      ,
-      invoices: {
-        Row: {
-          id: string
-          user_id: string
-          client_id: string
-          issue_date: string
-          due_date: string
-          currency: string
-          concept: string
-          total_amount: number
-          status: string
-          notes: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          client_id: string
-          issue_date: string
-          due_date: string
-          currency: string
-          concept: string
-          total_amount: number
-          status?: string
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          client_id?: string
-          issue_date?: string
-          due_date?: string
-          currency?: string
-          concept?: string
-          total_amount?: number
-          status?: string
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_client_id_fkey",
-            columns: ["client_id"],
-            isOneToOne: false,
-            referencedRelation: "clients",
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      ,
-      invoice_payments: {
-        Row: {
-          id: string
-          user_id: string
-          invoice_id: string
-          paid_at: string
-          amount: number
-          currency: string
-          method: string | null
-          notes: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          invoice_id: string
-          paid_at?: string
-          amount: number
-          currency: string
-          method?: string | null
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          invoice_id?: string
-          paid_at?: string
-          amount?: number
-          currency?: string
-          method?: string | null
-          notes?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_payments_invoice_id_fkey",
-            columns: ["invoice_id"],
-            isOneToOne: false,
-            referencedRelation: "invoices",
             referencedColumns: ["id"]
           }
         ]

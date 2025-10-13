@@ -133,6 +133,38 @@ export function useExpenses() {
     );
   };
 
+  // Simple normalization helper for duplicate detection
+  const normalize = (s?: string | null) => (s || '').trim().toLowerCase();
+
+  // Find possible duplicates by name within the month of the provided date
+  const findDuplicatesByNameInMonth = (name: string, date: string) => {
+    const key = monthKey(date);
+    const norm = normalize(name);
+    return expenses.filter(e =>
+      !e.is_recurring &&
+      monthKey(e.transaction_date) === key &&
+      normalize(e.name) === norm
+    );
+  };
+
+  // Find duplicates for a template in a given month (by exact template instance or by matching name)
+  const findDuplicatesForTemplateInMonth = (templateId: string, date?: string) => {
+    const template = expenses.find(e => e.id === templateId);
+    if (!template) return [] as ExpenseRow[];
+    const targetDate = (date ?? new Date().toISOString().slice(0, 10));
+    const key = monthKey(targetDate);
+    const byTemplate = expenses.filter(e =>
+      Array.isArray(e.tags) &&
+      e.tags.includes('recurrence-instance') &&
+      e.tags.includes(`recurrence-of:${templateId}`) &&
+      monthKey(e.transaction_date) === key
+    );
+    const byName = findDuplicatesByNameInMonth(template.name || '', targetDate);
+    const map = new Map<string, ExpenseRow>();
+    [...byTemplate, ...byName].forEach(e => map.set(e.id, e));
+    return Array.from(map.values());
+  };
+
   const getPendingRecurringForMonth = (date: Date = new Date()) => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
@@ -303,5 +335,8 @@ export function useExpenses() {
     isExpensePaid,
     markExpensePaid,
     undoExpensePaid,
+    // duplicate detection utils
+    findDuplicatesByNameInMonth,
+    findDuplicatesForTemplateInMonth,
   };
 }

@@ -12,6 +12,23 @@ export interface BasicExpenseLike {
   frequency?: string | null;
   is_recurring?: boolean | null;
   transaction_date?: string | null;
+  card_type?: string | null;
+  closing_day?: number | null;
+}
+
+// Determina el monthKey efectivo de una transacción según el ciclo de cierre de la tarjeta de crédito.
+// Si no es tarjeta de crédito o no hay closing_day, usa el mes de la transacción.
+export function effectiveMonthKey(transactionDate: string, cardType?: string | null, closingDay?: number | null): string {
+  const tx = new Date(transactionDate);
+  if ((cardType === 'credit' || cardType === 'CREDIT') && closingDay && closingDay >= 1 && closingDay <= 31) {
+    // Compras posteriores al día de cierre se imputan al resumen del mes siguiente
+    if (tx.getDate() > closingDay) {
+      const next = new Date(tx.getFullYear(), tx.getMonth() + 1, 1);
+      return monthKey(next);
+    }
+    return monthKey(new Date(tx.getFullYear(), tx.getMonth(), 1));
+  }
+  return monthKey(tx);
 }
 
 // Normaliza un monto recurrente a su equivalente mensual aproximado
@@ -51,9 +68,20 @@ export function accruedExpenseForMonth(expenses: BasicExpenseLike[], date: Date)
       total += normalizeRecurring(e.amount || 0, e.frequency);
       continue;
     }
-    // Variable / once: sólo si cae en el mes
-    if (e.transaction_date && monthKey(e.transaction_date) === key) {
-      total += e.amount || 0;
+    // Variable / once: usamos mes de transacción, salvo tarjetas de crédito con fecha de cierre
+    if (e.transaction_date) {
+      const tx = new Date(e.transaction_date);
+      let effective = monthKey(tx);
+      if ((e.card_type === 'credit' || e.card_type === 'CREDIT') && e.closing_day && e.closing_day >= 1 && e.closing_day <= 31) {
+        // Si la compra es posterior al día de cierre del mes, cuenta para el resumen del mes siguiente
+        if (tx.getDate() > e.closing_day) {
+          const nextMonth = new Date(tx.getFullYear(), tx.getMonth() + 1, 1);
+          effective = monthKey(nextMonth);
+        } else {
+          effective = monthKey(new Date(tx.getFullYear(), tx.getMonth(), 1));
+        }
+      }
+      if (effective === key) total += e.amount || 0;
     }
   }
   return total;

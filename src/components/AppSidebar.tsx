@@ -38,7 +38,7 @@ const mainNavItems = [
   // { title: "Suscripciones", url: "/subscriptions", icon: Package },
   // { title: "Servicios del Hogar", url: "/housing-services", icon: Home },
   { title: "Cuotas", url: "/installments", icon: Calculator },
-  { title: "Tarjetas", url: "/cards", icon: CreditCard },
+  { title: "Medios de Pago", url: "/cards", icon: CreditCard },
   { title: "Análisis", url: "/analytics", icon: BarChart3 },
   { title: "Notificaciones", url: "/notifications", icon: Bell },
 ];

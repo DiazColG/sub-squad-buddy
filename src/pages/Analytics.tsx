@@ -3,16 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, PieChart as PieChartIcon, BarChart3, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Target } from 'lucide-react';
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
-import { useIncomeReceipts } from "@/hooks/useIncomeReceipts"; // mantenido para futura vista cash
-import { useExpensePayments } from "@/hooks/useExpensePayments";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useExpenses } from "@/hooks/useExpenses";
-import { accruedSeries, accruedIncomeForMonth, accruedExpenseForMonth } from '@/lib/accrual';
+import { accruedExpenseForMonth, type BasicExpenseLike, effectiveMonthKey } from '@/lib/accrual';
 import { monthKey } from '@/lib/dateUtils';
 import { useFinancialCategories } from "@/hooks/useFinancialCategories";
+import { useCards } from "@/hooks/useCards";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
@@ -20,13 +19,11 @@ const Analytics = () => {
   const { profile } = useUserProfile();
   const userCurrency = profile?.primary_display_currency || 'USD';
   const { convertCurrency, formatCurrency: fmt } = useCurrencyExchange();
-  const { receipts } = useIncomeReceipts();
-  const { payments } = useExpensePayments();
   const { incomes } = useIncomes();
   const { expenses } = useExpenses();
+  const { cards } = useCards();
   const { categories } = useFinancialCategories();
 
-  // Usamos util central para consistencia
   const current = monthKey(new Date());
   const lastNMonths = useCallback((n: number) => {
     const res: string[] = [];
@@ -37,51 +34,125 @@ const Analytics = () => {
     }
     return res;
   }, []);
-  const normalizeMonthlyIncome = (amount: number, frequency: string) => {
-    switch (frequency) {
-      case 'weekly': return amount * 4.33;
-      case 'biweekly': return amount * 2.17;
-      case 'quarterly': return amount / 3;
-      case 'yearly': return amount / 12;
-      default: return amount; // monthly/once
-    }
-  };
 
-  // Índices por período
-  // Serie devengada (no dependemos ya de receipts/payments para los principales KPIs)
-
-  // Serie mensual 12m (real)
+  // Serie mensual 12m (real, devengado y convertido)
   const months = useMemo(() => lastNMonths(12), [lastNMonths]);
-  const monthlySeries = useMemo(() => accruedSeries(incomes, expenses, months), [incomes, expenses, months]);
+  const monthlySeries = useMemo(() => months.map(period => {
+    const d = new Date(period + '-01');
+    const key = monthKey(d);
+    const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
-  // MTD (real)
+    // Ingresos devengados convertidos a moneda de usuario
+    let incomeTotal = 0;
+    for (const i of incomes) {
+      if (!i.is_active) continue;
+      if (i.start_date && new Date(i.start_date) > endOfMonth) continue;
+      if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== key) continue;
+      const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+      const amount = i.amount || 0;
+      const base = (() => {
+        switch (i.frequency) {
+          case 'weekly': return amount * 4.33;
+          case 'biweekly': return amount * 2.17;
+          case 'quarterly': return amount / 3;
+          case 'yearly': return amount / 12;
+          case 'daily': return amount * 30;
+          default: return amount;
+        }
+      })();
+      incomeTotal += convertCurrency(base, fromCcy, userCurrency);
+    }
+
+    // Gastos devengados convertidos a moneda de usuario
+    let expenseTotal = 0;
+    for (const e of expenses) {
+      const fromCcy = e.currency || userCurrency;
+      if (e.is_recurring) {
+        if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+  const base = accruedExpenseForMonth([{ amount: e.amount, frequency: e.frequency, is_recurring: true, transaction_date: e.transaction_date } as BasicExpenseLike], d);
+        expenseTotal += convertCurrency(base, fromCcy, userCurrency);
+      } else if (e.transaction_date) {
+        const cd = e.card_id ? cards.find(c => c.id === e.card_id) : undefined;
+        const effKey = effectiveMonthKey(e.transaction_date, cd?.card_type, cd?.closing_day ?? undefined);
+        if (effKey === key) {
+          expenseTotal += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+        }
+      }
+    }
+
+    const net = incomeTotal - expenseTotal;
+    return { period, income: incomeTotal, expenses: expenseTotal, net, savingsRate: incomeTotal > 0 ? net / incomeTotal : 0 };
+  }), [months, incomes, expenses, cards, userCurrency, convertCurrency]);
+
+  // MTD actual
   const mtd = useMemo(() => {
-    const cur = monthlySeries.find(m => m.period === current) || { income: 0, expenses: 0, net: 0, savingsRate: 0 };
-    return cur;
+    const fallback: { period?: string; income: number; expenses: number; net: number; savingsRate: number } = { income: 0, expenses: 0, net: 0, savingsRate: 0 };
+    return monthlySeries.find(m => m.period === current) || fallback;
   }, [monthlySeries, current]);
 
-  // Presupuesto mensual (planned)
+  // Planned (devengado y convertido)
   const planned = useMemo(() => {
-    // Para devengado, "planned" coincide prácticamente con la suma mensual normalizada.
-    const income = accruedIncomeForMonth(incomes, new Date());
-    const expense = accruedExpenseForMonth(expenses, new Date());
-    return { income, expenses: expense, net: income - expense };
-  }, [incomes, expenses]);
+    const ref = new Date();
+    const key = monthKey(ref);
+    const endOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+    // Ingresos
+    let inc = 0;
+    for (const i of incomes) {
+      if (!i.is_active) continue;
+      if (i.start_date && new Date(i.start_date) > endOfMonth) continue;
+      if (i.frequency === 'once' && i.start_date && monthKey(i.start_date) !== key) continue;
+      const fromCcy = (Array.isArray(i.tags) ? i.tags.find(t => t.startsWith('currency:')) : undefined)?.replace('currency:', '') || userCurrency;
+      const amount = i.amount || 0;
+      const base = (() => {
+        switch (i.frequency) {
+          case 'weekly': return amount * 4.33;
+          case 'biweekly': return amount * 2.17;
+          case 'quarterly': return amount / 3;
+          case 'yearly': return amount / 12;
+          case 'daily': return amount * 30;
+          default: return amount;
+        }
+      })();
+      inc += convertCurrency(base, fromCcy, userCurrency);
+    }
+    // Gastos
+    let exp = 0;
+    for (const e of expenses) {
+      const fromCcy = e.currency || userCurrency;
+      if (e.is_recurring) {
+        if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+  const base = accruedExpenseForMonth([{ amount: e.amount, frequency: e.frequency, is_recurring: true, transaction_date: e.transaction_date } as BasicExpenseLike], ref);
+        exp += convertCurrency(base, fromCcy, userCurrency);
+      } else if (e.transaction_date) {
+        const cd = e.card_id ? cards.find(c => c.id === e.card_id) : undefined;
+        const effKey = effectiveMonthKey(e.transaction_date, cd?.card_type, cd?.closing_day ?? undefined);
+        if (effKey === key) {
+          exp += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+        }
+      }
+    }
+    return { income: inc, expenses: exp, net: inc - exp };
+  }, [incomes, expenses, cards, userCurrency, convertCurrency]);
 
-  // Cobertura y alertas
-  const coverage: { incomeCoverage: number; expenseCoverage: number; incomesDue: unknown[]; expensesDue: unknown[] } = { incomeCoverage: 0, expenseCoverage: 0, incomesDue: [], expensesDue: [] }; // placeholder
-
-  // Categorías (gasto real del mes actual por categoría)
+  // Category distribution for current month (converted)
   const categoryData = useMemo(() => {
-    // Distribución devengada: suma variable del mes + recurrente normalizado
     const curKey = current;
+    const ref = new Date(curKey + '-01');
+    const endOfMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
     const byCat = new Map<string, number>();
     for (const e of expenses) {
+      const fromCcy = e.currency || userCurrency;
       let value = 0;
       if (e.is_recurring) {
-        value = accruedExpenseForMonth([e], new Date(curKey + '-01')); // usa normalización
-      } else if (e.transaction_date && monthKey(e.transaction_date) === curKey) {
-        value = e.amount || 0;
+        if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+  const base = accruedExpenseForMonth([{ amount: e.amount, frequency: e.frequency, is_recurring: true, transaction_date: e.transaction_date } as BasicExpenseLike], ref);
+        value = convertCurrency(base, fromCcy, userCurrency);
+      } else if (e.transaction_date) {
+        const cd = e.card_id ? cards.find(c => c.id === e.card_id) : undefined;
+        const effKey = effectiveMonthKey(e.transaction_date, cd?.card_type, cd?.closing_day ?? undefined);
+        if (effKey === curKey) {
+          value = convertCurrency(e.amount || 0, fromCcy, userCurrency);
+        }
       }
       if (value > 0) {
         const catId = e.category_id || 'uncat';
@@ -94,9 +165,9 @@ const Analytics = () => {
       value,
       percentage: ((value/ total)*100).toFixed(1)
     })).sort((a,b)=>b.value-a.value).slice(0,6);
-  }, [expenses, categories, current]);
+  }, [expenses, categories, cards, current, userCurrency, convertCurrency]);
 
-  // Tendencia mensual para chart (últimos 12)
+  // Data para línea de tendencia
   const monthlyData = useMemo(() => monthlySeries.map(m => ({
     month: new Date(m.period + '-01').toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
     income: m.income,
@@ -104,27 +175,7 @@ const Analytics = () => {
     net: m.net,
   })), [monthlySeries]);
 
-  // Optimización (basado en pagos del mes)
-  const optimizationData = useMemo(() => {
-    const curPays = payments.filter(p => p.period_month === current);
-    const buckets: Record<string, number> = {
-      'Alto potencial (8-10)': 0,
-      'Medio (5-7)': 0,
-      'Optimizado (0-4)': 0,
-    };
-    for (const p of curPays) {
-      const exp = expenses.find(e => e.id === p.expense_id);
-      const score = exp?.optimization_potential || 0;
-      const val = convertCurrency(p.amount || 0, p.currency || userCurrency, userCurrency);
-      if (score >= 8) buckets['Alto potencial (8-10)'] += val;
-      else if (score >= 5) buckets['Medio (5-7)'] += val;
-      else buckets['Optimizado (0-4)'] += val;
-    }
-    const total = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
-    return Object.entries(buckets).map(([name, value]) => ({ name, value, percentage: ((value / total) * 100).toFixed(1) }));
-  }, [payments, expenses, convertCurrency, userCurrency, current]);
-
-  if (expenses.length === 0 && receipts.length === 0 && payments.length === 0) {
+  if (expenses.length === 0 && incomes.length === 0) {
     return (
       <Layout>
         <div className="space-y-6">
@@ -221,16 +272,13 @@ const Analytics = () => {
               <div className="flex gap-4 items-end">
                 <div>
                   <div className="text-sm text-muted-foreground">Ingresos</div>
-                  <div className="text-xl font-semibold">{Math.round(coverage.incomeCoverage*100)}%</div>
+                  <div className="text-xl font-semibold">0%</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Gastos</div>
-                  <div className="text-xl font-semibold">{Math.round(coverage.expenseCoverage*100)}%</div>
+                  <div className="text-xl font-semibold">0%</div>
                 </div>
               </div>
-              {(coverage.incomesDue.length>0 || coverage.expensesDue.length>0) && (
-                <p className="text-xs text-muted-foreground mt-2">Pendientes: {coverage.incomesDue.length} ingresos • {coverage.expensesDue.length} gastos</p>
-              )}
             </CardContent>
           </Card>
         </div>
@@ -260,11 +308,11 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          {/* Gráfico por Categorías (mes actual real) */}
+          {/* Gráfico por Categorías (mes actual devengado) */}
           <Card>
             <CardHeader>
               <CardTitle>Gastos por Categoría</CardTitle>
-              <CardDescription>Mes en curso (pagos efectivos)</CardDescription>
+              <CardDescription>Mes en curso (devengado convertido)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -290,105 +338,7 @@ const Analytics = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Presupuesto vs Real (Mes actual) */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Presupuesto vs Real (mes actual)</CardTitle>
-              <CardDescription>Comparativa rápida</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="border rounded p-3">
-                  <div className="text-sm mb-2">Ingresos</div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={[{ name: 'Planned', value: planned.income }, { name: 'Real', value: incMTD }] }>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => fmt(Number(value), userCurrency)} />
-                      <Bar dataKey="value" fill="#16a34a" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Variancia: {fmt(incMTD - planned.income, userCurrency)}
-                  </div>
-                </div>
-                <div className="border rounded p-3">
-                  <div className="text-sm mb-2">Gastos</div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={[{ name: 'Planned', value: planned.expenses }, { name: 'Real', value: expMTD }] }>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => fmt(Number(value), userCurrency)} />
-                      <Bar dataKey="value" fill="#dc2626" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Variancia: {fmt(expMTD - planned.expenses, userCurrency)}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-
-        {/* Análisis de Optimización (ponderado por pagos del mes) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Análisis de Optimización</CardTitle>
-            <CardDescription>Distribución por potencial (sobre lo efectivamente pagado este mes)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={optimizationData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percentage }) => `${percentage}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      <Cell fill="#FF8042" />
-                      <Cell fill="#FFBB28" />
-                      <Cell fill="#00C49F" />
-                    </Pie>
-                    <Tooltip formatter={(value) => fmt(Number(value), userCurrency)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold mb-3">Insights de Optimización</h4>
-                  <div className="space-y-3">
-                    {optimizationData.map((item, index) => (
-                      <div key={item.name} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: ['#FF8042', '#FFBB28', '#00C49F'][index] }}
-                          />
-                          <span className="text-sm font-medium">{item.name}</span>
-                        </div>
-                        <Badge variant="outline">
-                          {fmt(item.value as number, userCurrency)}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </Layout>
   );

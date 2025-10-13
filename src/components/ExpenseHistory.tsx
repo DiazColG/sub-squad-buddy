@@ -48,13 +48,27 @@ const ExpenseHistory: React.FC<Props> = ({ expenseId, defaultCurrency }) => {
           <div className="p-4 text-sm text-muted-foreground">Sin registros aún.</div>
         )}
         {sorted.map(rec => (
-          <div key={rec.id} className="p-3 flex items-center justify-between">
+          <div key={rec.id} className="p-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium">{rec.period_month}</div>
               <div className="text-xs text-muted-foreground">Pagado: {rec.paid_at}</div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-sm font-semibold">{new Intl.NumberFormat(undefined, { style: 'currency', currency: rec.currency }).format(rec.amount)}</div>
+            <div className="flex items-center gap-2">
+              <Input
+                className="w-28"
+                type="number"
+                step="0.01"
+                value={String(rec.amount)}
+                onChange={e => upsertPayment({ expense_id: rec.expense_id, amount: Number(e.target.value || 0), currency: rec.currency, paid_at: rec.paid_at })}
+              />
+              <Select value={rec.currency} onValueChange={v => upsertPayment({ expense_id: rec.expense_id, amount: rec.amount, currency: v, paid_at: rec.paid_at })}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg">
+                  {['USD','EUR','ARS','GBP','CAD','AUD','JPY','CHF','SEK','NOK','DKK','BRL','MXN'].map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button size="icon" variant="ghost" title="Eliminar" onClick={() => deletePayment(rec.id)}>
                 <Trash2 className="h-4 w-4 text-red-600" />
               </Button>

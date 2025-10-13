@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -10,6 +10,11 @@ export interface Card {
   bank_name: string;
   card_type: 'credit' | 'debit';
   card_brand?: string;
+  currency?: string | null;
+  payment_method?: 'cash-deposit' | 'auto-debit' | null;
+  auto_debit_account_id?: string | null;
+  closing_day?: number | null;
+  statement_due_day?: number | null;
   expiry_date: string;
   cardholder_name?: string;
   enable_expiry_alert: boolean;
@@ -24,7 +29,7 @@ export const useCards = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchCards = async () => {
+  const fetchCards = useCallback(async () => {
     if (!user) {
       setCards([]);
       setLoading(false);
@@ -52,7 +57,7 @@ export const useCards = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const addCard = async (cardData: Omit<Card, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) {
@@ -147,7 +152,7 @@ export const useCards = () => {
 
   useEffect(() => {
     fetchCards();
-  }, [user]);
+  }, [user, fetchCards]);
 
   return {
     cards,

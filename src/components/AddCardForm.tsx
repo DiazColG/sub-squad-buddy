@@ -15,13 +15,14 @@ import type { Card } from "@/hooks/useCards";
 interface AddCardFormProps {
   onSubmit: (cardData: Omit<Card, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   loading: boolean;
+  initialType?: 'credit' | 'debit';
 }
 
-const AddCardForm = ({ onSubmit, loading }: AddCardFormProps) => {
+const AddCardForm = ({ onSubmit, loading, initialType = 'credit' }: AddCardFormProps) => {
   const [formData, setFormData] = useState({
     card_last_digits: "",
     bank_name: "",
-    card_type: "credit" as "credit" | "debit",
+    card_type: initialType as "credit" | "debit",
     card_brand: "",
     expiry_date: undefined as Date | undefined,
     cardholder_name: "",
@@ -63,21 +64,19 @@ const AddCardForm = ({ onSubmit, loading }: AddCardFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.expiry_date) {
-      return;
-    }
+    // Permite que wrappers establezcan un expiry_date por defecto al convertir antes del submit
 
     try {
       await onSubmit({
         ...formData,
-        expiry_date: formData.expiry_date.toISOString().split('T')[0]
+        expiry_date: formData.expiry_date ? formData.expiry_date.toISOString().split('T')[0] : new Date(new Date().getFullYear() + 20, 0, 1).toISOString().slice(0,10)
       });
       
       // Reset form
       setFormData({
         card_last_digits: "",
         bank_name: "",
-        card_type: "credit",
+        card_type: initialType,
         card_brand: "",
         expiry_date: undefined,
         cardholder_name: "",

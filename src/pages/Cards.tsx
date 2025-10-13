@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
@@ -23,8 +23,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCards } from "@/hooks/useCards";
-import AddCardForm from "@/components/AddCardForm";
+import { useCards, type Card as PaymentCard } from "@/hooks/useCards";
+import AddPaymentMethodTabs from "../components/AddPaymentMethodTabs";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/formatNumber";
 
@@ -73,7 +73,7 @@ const Cards = () => {
     (card.cardholder_name && card.cardholder_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddCard = async (cardData: any) => {
+  const handleAddCard = async (cardData: Omit<PaymentCard, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     try {
       await addCard(cardData);
       setIsDialogOpen(false);
@@ -92,42 +92,40 @@ const Cards = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Tarjetas</h1>
-          <p className="text-muted-foreground">Gestiona las tarjetas que usas para tus suscripciones</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-primary">
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Tarjeta
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Agregar Nueva Tarjeta</DialogTitle>
-            </DialogHeader>
-            <AddCardForm onSubmit={handleAddCard} loading={loading} />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tarjetas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      {/* Header with search and add button */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-2xl font-bold">Medios de Pago</h1>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar banco, titular o dígitos..."
+              className="w-64"
+            />
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-primary">Agregar medio de pago</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Agregar Medio de Pago</DialogTitle>
+              </DialogHeader>
+              <AddPaymentMethodTabs onSubmit={handleAddCard} loading={loading} />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* Mobile search */}
+      <div className="md:hidden">
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar banco, titular o dígitos..."
+        />
+      </div>
       {loading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -136,13 +134,19 @@ const Cards = () => {
       )}
 
       {/* Cards Grid */}
-      {!loading && (
+      {!loading && filteredCards.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCards.map((card) => {
             const expiryStatus = getExpiryStatus(card.expiry_date);
-            
+            const paymentMethodLabel = card.payment_method === 'auto-debit'
+              ? 'Débito automático'
+              : card.payment_method === 'cash-deposit'
+                ? 'Depósito en efectivo'
+                : undefined;
+            const isCredit = card.card_type === 'credit';
+            const isAccount = card.card_brand === 'Caja de Ahorro' || card.card_brand === 'Cuenta Corriente';
             return (
-              <Card key={card.id} className="shadow-card border-card-border hover:shadow-lg transition-shadow">
+              <UICard key={card.id} className="shadow-card border-card-border hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -168,6 +172,12 @@ const Cards = () => {
                           {expiryStatus.status === 'warning' && `Vence en ${expiryStatus.days}d`}
                           {expiryStatus.status === 'valid' && 'Válida'}
                         </Badge>
+                        {card.currency && (
+                          <Badge variant="outline">{card.currency}</Badge>
+                        )}
+                        {paymentMethodLabel && (
+                          <Badge variant="outline">{paymentMethodLabel}</Badge>
+                        )}
                       </div>
                     </div>
                     <DropdownMenu>
@@ -193,6 +203,13 @@ const Cards = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {isCredit && (!card.closing_day || card.closing_day <= 0) && (
+                    <div className="flex items-center gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-2 text-xs text-yellow-800">
+                      <AlertTriangle className="h-4 w-4" />
+                      Falta fecha de cierre. Configúrala para imputar gastos al mes correcto.
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Building2 className="h-4 w-4" />
@@ -219,20 +236,47 @@ const Cards = () => {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span className="text-sm">Vencimiento</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-foreground">
-                        {new Date(card.expiry_date).toLocaleDateString('es-ES', { 
-                          month: '2-digit', 
-                          year: 'numeric' 
-                        })}
+                  {/* Vencimiento plástico de la tarjeta (ocultar para cuentas) */}
+                  {!isAccount && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm">Vencimiento</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-foreground">
+                          {new Date(card.expiry_date).toLocaleDateString('es-ES', { 
+                            month: '2-digit', 
+                            year: 'numeric' 
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Cierre y vencimiento del resumen (tarjetas de crédito) */}
+                  {isCredit && card.closing_day && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm">Cierre</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-foreground">día {card.closing_day}</div>
+                      </div>
+                    </div>
+                  )}
+                  {isCredit && card.statement_due_day && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm">Vencimiento resumen</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-foreground">día {card.statement_due_day}</div>
+                      </div>
+                    </div>
+                  )}
 
                   {card.enable_expiry_alert && expiryStatus.status !== 'valid' && (
                     <div className="flex items-center gap-2 text-warning">
@@ -243,7 +287,7 @@ const Cards = () => {
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </UICard>
             );
           })}
         </div>
@@ -252,21 +296,21 @@ const Cards = () => {
       {!loading && filteredCards.length === 0 && (
         <div className="text-center py-12">
           <div className="text-muted-foreground">
-            {searchTerm ? "No se encontraron tarjetas" : "No tienes tarjetas registradas"}
+            {searchTerm ? "No se encontraron medios de pago" : "No tenés medios de pago registrados"}
           </div>
           {!searchTerm && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="mt-4 bg-gradient-primary">
                   <Plus className="h-4 w-4 mr-2" />
-                  Agregar primera tarjeta
+                  Agregar primer medio de pago
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Agregar Nueva Tarjeta</DialogTitle>
+                  <DialogTitle>Agregar Medio de Pago</DialogTitle>
                 </DialogHeader>
-                <AddCardForm onSubmit={handleAddCard} loading={loading} />
+                <AddPaymentMethodTabs onClose={() => setIsDialogOpen(false)} onSubmit={handleAddCard} loading={loading} />
               </DialogContent>
             </Dialog>
           )}

@@ -11,17 +11,23 @@ import { PiggyBank, Plus, DollarSign, TrendingDown, AlertTriangle } from 'lucide
 import { useBudgets } from '@/hooks/useBudgets';
 import { useFinancialCategories } from '@/hooks/useFinancialCategories';
 import { AddBudgetForm } from '@/components/AddBudgetForm';
+import { useExpenses, type ExpenseRow } from '@/hooks/useExpenses';
+import { monthKey } from '@/lib/dateUtils';
+import { normalizeRecurring, effectiveMonthKey } from '@/lib/accrual';
+import { useCards } from '@/hooks/useCards';
 
 const BudgetManagement = () => {
   // removed beta gating usage
   // Eliminado showAddForm: el formulario se maneja internamente via DialogTrigger
   const { profile } = useUserProfile();
-  const { formatCurrency: fmt } = useCurrencyExchange();
+  const { formatCurrency: fmt, convertCurrency } = useCurrencyExchange();
   const userCurrency = profile?.primary_display_currency || 'USD';
 
   const { aggregated, loading: loadingBudgets, getCurrentPeriod, localMode, localCount, syncLocalToServer } = useBudgets();
   const { getExpenseCategories } = useFinancialCategories();
   const expenseCats = getExpenseCategories();
+  const { expenses } = useExpenses();
+  const { cards } = useCards();
 
   // Periodo actual (si existe en DB)
   const activeBudget = useMemo(() => getCurrentPeriod(), [getCurrentPeriod]);
@@ -76,12 +82,87 @@ const BudgetManagement = () => {
         </div>
     );
   }
-  const totalSpent = activeBudget?.total_spent || 0;
   const totalBudgeted = activeBudget?.total_budget || 0;
-  const remainingBudget = activeBudget?.remaining || 0;
   const categories = activeBudget?.categories ?? [];
+
+  // Calcula gasto devengado (accrual) para un período y categoría opcional
+  const computeAccruedSpent = (
+    start: string,
+    end: string,
+    categoryId: string | null
+  ) => {
+    if (!start || !end) return 0;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    // Construir lista de meses entre start y end (inclusive)
+    const months: string[] = [];
+    const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const endCursor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    while (cursor <= endCursor) {
+      months.push(monthKey(cursor));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    let total = 0;
+    for (const period of months) {
+      const d = new Date(period + '-01');
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      for (const e of expenses as ExpenseRow[]) {
+        // Filtrar por categoría (si aplica)
+        const matchesCategory = categoryId === null ? true : e.category_id === categoryId;
+        if (!matchesCategory) continue;
+        const fromCcy = e.currency || userCurrency;
+
+        if (e.is_recurring) {
+          // Plantillas: contar valor normalizado si arrancó antes de fin de mes
+          if (e.transaction_date && new Date(e.transaction_date) > endOfMonth) continue;
+          const base = normalizeRecurring(e.amount || 0, e.frequency);
+          total += convertCurrency(base, fromCcy, userCurrency);
+        } else {
+          // Variables: imputar por mes efectivo (fecha de cierre si es tarjeta de crédito)
+          if (!e.transaction_date) continue;
+          const card = e.card_id ? cards.find(c => c.id === e.card_id) : undefined;
+          const effKey = effectiveMonthKey(e.transaction_date, card?.card_type, card?.closing_day ?? undefined);
+          if (effKey !== period) continue;
+          const txDate = new Date(e.transaction_date);
+          if (txDate < startDate || txDate > endDate) continue;
+          total += convertCurrency(e.amount || 0, fromCcy, userCurrency);
+        }
+      }
+    }
+    return total;
+  };
+
+  // Gasto devengado por categoría del presupuesto activo (no hook para evitar reglas de hooks con returns tempranos)
+  const accruedByCategory: Map<string, number> = (() => {
+    if (!activeBudget) return new Map();
+    const map = new Map<string, number>();
+    for (const c of categories) {
+      const key = c.category_id ?? '__general__';
+      const spent = computeAccruedSpent(activeBudget.period_start, activeBudget.period_end, c.category_id);
+      map.set(key, spent);
+    }
+    return map;
+  })();
+
+  const totalSpent: number = (() => {
+    if (!activeBudget) return 0;
+    let sum = 0;
+    for (const c of categories) {
+      const key = c.category_id ?? '__general__';
+      sum += accruedByCategory.get(key) || 0;
+    }
+    return sum;
+  })();
+
+  const remainingBudget = totalBudgeted - totalSpent;
   const categoriesForGrid = categories.filter(c => c.category_id !== null);
-  const overBudgetCategories = categoriesForGrid.filter(cat => cat.spent_amount > cat.budgeted_amount);
+  const overBudgetCategories = categoriesForGrid.filter(cat => {
+    const key = cat.category_id ?? '__general__';
+    const spent = accruedByCategory.get(key) || 0;
+    return spent > cat.budgeted_amount;
+  });
 
   return (
       <div className="container mx-auto p-6 space-y-6">
@@ -199,9 +280,10 @@ const BudgetManagement = () => {
               {/* Categorías */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {categoriesForGrid.map((category) => {
-                  const percentage = getSpentPercentage(category.spent_amount, category.budgeted_amount);
-                  const status = getBudgetStatus(category.spent_amount, category.budgeted_amount);
-                  const remaining = category.budgeted_amount - category.spent_amount;
+                  const accrued = accruedByCategory.get(category.category_id ?? '__general__') || 0;
+                  const percentage = getSpentPercentage(accrued, category.budgeted_amount);
+                  const status = getBudgetStatus(accrued, category.budgeted_amount);
+                  const remaining = category.budgeted_amount - accrued;
                   
                   return (
                     <div key={category.id} className="border rounded-lg p-4 space-y-3">
@@ -225,7 +307,7 @@ const BudgetManagement = () => {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className={status.color}>
-                            {formatCurrency(category.spent_amount)}
+                            {formatCurrency(accrued)}
                           </span>
                           <span className="text-gray-600">
                             de {formatCurrency(category.budgeted_amount)}
@@ -275,7 +357,9 @@ const BudgetManagement = () => {
           <CardContent>
             <div className="space-y-4">
               {aggregated.filter(a => a !== activeBudget).map(history => {
-                const performance = history.total_budget > 0 ? (history.total_spent / history.total_budget) * 100 : 0;
+                // Recalcular gasto devengado para cada período histórico
+                const histSpent = history.categories.reduce((s, c) => s + computeAccruedSpent(history.period_start, history.period_end, c.category_id), 0);
+                const performance = history.total_budget > 0 ? (histSpent / history.total_budget) * 100 : 0;
                 return (
                   <div key={`${history.period_start}-${history.period_end}`} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
@@ -284,7 +368,7 @@ const BudgetManagement = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-lg font-semibold">
-                        {formatCurrency(history.total_spent)} / {formatCurrency(history.total_budget)}
+                        {formatCurrency(histSpent)} / {formatCurrency(history.total_budget)}
                       </div>
                       <div className={`text-sm ${performance > 100 ? 'text-red-600' : 'text-green-600'}`}>{performance.toFixed(1)}% del presupuesto</div>
                     </div>

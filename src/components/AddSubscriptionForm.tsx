@@ -1,153 +1,70 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card as UICard, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Loader2, CreditCard } from "lucide-react";
+import { CalendarIcon, Loader2, CreditCard, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCards, type Card as CardModel } from "@/hooks/useCards";
 import { useExpenses } from "@/hooks/useExpenses";
+type BillingCycle = "Monthly" | "Quarterly" | "Annually" | "";
+type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "cash" | "crypto" | "";
 
-type BillingCycle = "Monthly" | "Quarterly" | "Semi-Annually" | "Annually" | "";
-type PaymentMethod = "debit_auto" | "credit_card" | "debit_card" | "transfer" | "other" | "";
-type Currency = "USD" | "EUR" | "ARS" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK";
+interface AddSubscriptionFormProps { onSuccess?: () => void }
 
-interface SubscriptionFormState {
-  service_name: string;
-  cost: string;
-  currency: Currency;
-  billing_cycle: BillingCycle;
-  category: string;
-  enable_renewal_alert: boolean;
-  alert_days_before: number;
-  payment_method: PaymentMethod;
-  bank_name: string;
-  card_type: string;
-  card_last_digits: string;
-  card_id: string;
-}
-
-interface SubscriptionSubmitData extends Omit<SubscriptionFormState, 'cost'> {
-  cost: number;
-  next_renewal_date: string;
-}
-
-interface AddSubscriptionFormProps {
-  onSubmit: (data: SubscriptionSubmitData) => Promise<void>;
-  loading?: boolean;
-}
-
-const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormProps) => {
+const AddSubscriptionForm = ({ onSuccess }: AddSubscriptionFormProps) => {
   const { cards } = useCards();
   const { addExpense } = useExpenses();
-  const [formData, setFormData] = useState<SubscriptionFormState>({
+  const [formData, setFormData] = useState({
     service_name: "",
     cost: "",
-    currency: "USD",
-    billing_cycle: "",
-    category: "",
-    enable_renewal_alert: false,
-    alert_days_before: 7,
-    payment_method: "",
-    bank_name: "",
-    card_type: "",
-    card_last_digits: "",
-    card_id: ""
+    currency: "USD" as string,
+    billing_cycle: "" as BillingCycle,
+    payment_method: "" as PaymentMethod,
+    card_id: "" as string,
   });
   const [renewalDate, setRenewalDate] = useState<Date>();
-  const [reflectInExpenses, setReflectInExpenses] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const currencies = [
-    "USD", "EUR", "ARS", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "DKK"
-  ];
+  // Lista acotada y soportada por el backend (evitamos monedas que puedan romper funciones SQL)
+  const currencies = ["USD", "EUR", "ARS"] as const;
+  type Currency = typeof currencies[number];
+  const isSupportedCurrency = (c: string): c is Currency => (currencies as readonly string[]).includes(c);
 
   const billingCycles = [
     { value: "Monthly", label: "Mensual" },
     { value: "Quarterly", label: "Trimestral" },
-    { value: "Semi-Annually", label: "Semestral" },
     { value: "Annually", label: "Anual" }
   ];
 
-  const categories = [
-    "Entretenimiento",
-    "Software", 
-    "Productividad",
-    "Salud",
-    "Negocios",
-    "Otros"
-  ];
-
-  const alertOptions = [
-    { value: 1, label: "1 día antes" },
-    { value: 3, label: "3 días antes" },
-    { value: 7, label: "7 días antes" }
-  ];
-
   const paymentMethods = [
-    { value: "debit_auto", label: "Débito Automático" },
     { value: "credit_card", label: "Tarjeta de Crédito" },
     { value: "debit_card", label: "Tarjeta de Débito" },
-    { value: "transfer", label: "Transferencia" },
-    { value: "other", label: "Otro" }
-  ];
-
-  const argentineBanks = [
-    "Banco Nación",
-    "Banco Provincia",
-    "Banco Ciudad",
-    "Banco Santander",
-    "Banco Macro",
-    "BBVA",
-    "Banco Galicia",
-    "Banco Patagonia",
-    "Banco Supervielle",
-    "Banco Comafi",
-    "Otro"
-  ];
-
-  const cardTypes = [
-    { value: "visa", label: "Visa" },
-    { value: "mastercard", label: "MasterCard" },
-    { value: "amex", label: "American Express" },
-    { value: "other", label: "Otro" }
+    { value: "bank_transfer", label: "Transferencia bancaria" },
+    { value: "cash", label: "Efectivo" },
+    { value: "crypto", label: "Cripto" }
   ];
 
   const handleInputChange = <K extends keyof SubscriptionFormState>(field: K, value: SubscriptionFormState[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  type SubscriptionFormState = typeof formData;
+
   const handleCardSelection = (cardId: string) => {
-    if (cardId === 'manual') {
-      // Reset card fields to allow manual entry
-      setFormData(prev => ({
-        ...prev,
-        card_id: '',
-        payment_method: '',
-        card_type: '',
-        card_last_digits: '',
-        bank_name: ''
-      }));
-    } else {
-      const selectedCard = cards.find(card => card.id === cardId);
-      if (selectedCard) {
-        setFormData(prev => ({
-          ...prev,
-          card_id: cardId,
-          payment_method: selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card',
-          card_type: selectedCard.card_brand || 'other',
-          card_last_digits: selectedCard.card_last_digits,
-          bank_name: selectedCard.bank_name
-        }));
-      }
-    }
+    const selectedCard = cards.find(card => card.id === cardId);
+    setFormData(prev => ({
+      ...prev,
+      card_id: cardId || '',
+      payment_method: selectedCard ? (selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card') : prev.payment_method,
+    }));
   };
 
   const getCardDisplayName = (card: CardModel) => {
@@ -156,83 +73,125 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!renewalDate) {
-      toast.error("Por favor selecciona la fecha de renovación");
+    // Sanitize cost (replace comma with dot, trim) and validate requireds
+    const rawCost = (formData.cost || '').toString().replace(',', '.').trim();
+    if (!formData.service_name || !rawCost || !formData.billing_cycle) {
+      toast.error("Completá servicio, costo y ciclo");
       return;
     }
-
-    const subscriptionData = {
-      ...formData,
-      cost: parseFloat(formData.cost),
-      next_renewal_date: renewalDate.toISOString().split('T')[0]
-    };
-
-    await onSubmit(subscriptionData);
-
-    if (reflectInExpenses) {
-      const day = renewalDate.getDate();
-      const normalizeMonthly = (amount: number, cycle: string) => {
-        if (cycle === 'Annually') return amount / 12;
-        if (cycle === 'Quarterly') return amount / 3;
-        if (cycle === 'Semi-Annually') return amount / 6;
-        // Monthly by default
-        return amount;
-      };
-      const amountMonthly = normalizeMonthly(parseFloat(formData.cost), formData.billing_cycle);
-      try {
-        await addExpense({
-          name: formData.service_name,
-          amount: amountMonthly,
-          frequency: 'monthly',
-          transaction_date: new Date().toISOString().slice(0,10),
-          category_id: null,
-          description: 'Reflejado desde Suscripciones',
-          is_recurring: true,
-          recurring_day: day,
-          card_id: formData.card_id || null,
-          currency: formData.currency || 'USD',
-          due_date: null,
-          expense_type: null,
-          flexibility_level: null,
-          is_business_expense: null,
-          is_tax_deductible: null,
-          location: null,
-          monthly_amount: amountMonthly,
-          necessity_score: null,
-          notes: null,
-          optimization_potential: null,
-          optimization_tags: null,
-          payment_method: formData.payment_method || null,
-          receipt_url: null,
-          tags: ['recurrent-template','type:subscription','bridge:unified-expenses', `source-cycle:${formData.billing_cycle || 'Monthly'}`],
-          updated_at: null,
-          created_at: null,
-          vendor_name: null,
-        });
-      } catch (err) {
-        toast.error('No se pudo reflejar en Gastos');
-      }
+    if (!renewalDate) {
+      toast.error("Por favor selecciona la fecha de contratación");
+      return;
     }
-    
-    // Reset form
-    setFormData({
-      service_name: "",
-      cost: "",
-      currency: "USD",
-      billing_cycle: "",
-      category: "",
-      enable_renewal_alert: false,
-      alert_days_before: 7,
-      payment_method: "",
-      bank_name: "",
-      card_type: "",
-      card_last_digits: "",
-      card_id: ""
-    });
-    setRenewalDate(undefined);
-    setReflectInExpenses(true);
+    const normalizeMonthly = (amount: number, cycle: BillingCycle) => {
+      if (cycle === 'Annually') return amount / 12;
+      if (cycle === 'Quarterly') return amount / 3;
+      return amount; // Monthly default
+    };
+    const costNum = Number(rawCost);
+    if (!isFinite(costNum) || costNum <= 0) {
+      toast.error('Ingresá un costo válido (> 0)');
+      return;
+    }
+    // Validación: la contratación no puede ser futura (ya debería existir primer pago)
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfContract = new Date(renewalDate.getFullYear(), renewalDate.getMonth(), renewalDate.getDate());
+    if (startOfContract > startOfToday) {
+      toast.error('La fecha de contratación no puede ser futura');
+      return;
+    }
+    // día sugerido para recurring_day
+  const day = Math.max(1, Math.min(28, renewalDate.getDate()));
+  const contractDateStr = renewalDate.toISOString().slice(0, 10);
+  // calcular próxima renovación a partir de la fecha de contratación
+  const monthsToAdd = formData.billing_cycle === 'Annually' ? 12 : formData.billing_cycle === 'Quarterly' ? 3 : 1;
+  const nextRenewal = new Date(renewalDate);
+  nextRenewal.setMonth(nextRenewal.getMonth() + monthsToAdd);
+  // clamp day to 28 to avoid invalid dates (e.g., Feb)
+  nextRenewal.setDate(Math.min(28, nextRenewal.getDate()));
+  const nextRenewalStr = nextRenewal.toISOString().slice(0, 10);
+
+    // Normalize payment method: if card selected, force method by card type
+    const selectedCard = formData.card_id ? cards.find(c => c.id === formData.card_id) : undefined;
+    const methodFinal: PaymentMethod = selectedCard
+      ? (selectedCard.card_type === 'credit' ? 'credit_card' : 'debit_card')
+      : (formData.payment_method as PaymentMethod);
+
+    // Workaround: some DB-side logic may not handle bank_transfer/crypto yet.
+    // Map non-card methods to 'cash' but keep the original in tags.
+    let methodForInsert: PaymentMethod | null = null;
+    const extraTags: string[] = [];
+    if (selectedCard) {
+      methodForInsert = methodFinal; // credit_card or debit_card
+    } else if (methodFinal === 'credit_card' || methodFinal === 'debit_card') {
+      methodForInsert = null; // let DB default apply
+    } else if (methodFinal === 'bank_transfer' || methodFinal === 'crypto') {
+      methodForInsert = 'cash';
+      extraTags.push(`orig-payment:${methodFinal}`);
+    } else if (methodFinal === 'cash' || methodFinal === '') {
+      methodForInsert = 'cash';
+    } else {
+      methodForInsert = 'cash';
+      if (methodFinal) extraTags.push(`orig-payment:${methodFinal}`);
+    }
+
+    setSubmitting(true);
+    try {
+  const selectedCurrency = isSupportedCurrency(formData.currency) ? formData.currency : 'USD';
+  // Canonical lowercase cycle tag expected by backend logic
+  const tagCycle = formData.billing_cycle === 'Annually' ? 'yearly' : (formData.billing_cycle === 'Quarterly' ? 'quarterly' : 'monthly');
+      const created = await addExpense({
+        name: formData.service_name,
+        amount: costNum, // monto por ciclo
+        frequency: 'monthly',
+  // usamos la fecha de contratación como fecha de transacción del primer período
+  transaction_date: contractDateStr,
+        category_id: null,
+        description: 'Plantilla de suscripción',
+        is_recurring: true,
+        recurring_day: day,
+        card_id: formData.card_id || null,
+        currency: selectedCurrency,
+  // Guardamos explícitamente la próxima renovación calculada
+  due_date: nextRenewalStr,
+        expense_type: 'fixed',
+        // Nota: dejamos default/omisos para columnas opcionales no críticas
+        notes: null,
+        payment_method: methodForInsert,
+        receipt_url: null,
+        tags: [
+          'recurrent-template',
+          'type:subscription',
+          `source-cycle:${tagCycle}`,
+          `subscription-start:${contractDateStr}`,
+          `next-renewal:${nextRenewalStr}`,
+          ...extraTags,
+        ],
+        // Campos de tracking son manejados por la DB
+      });
+      if (created) {
+        toast.success('Suscripción agregada');
+        onSuccess?.();
+        // Reset
+        setFormData({ service_name: "", cost: "", currency: "USD", billing_cycle: "", payment_method: "", card_id: "" });
+        setRenewalDate(undefined);
+      }
+    } catch (err) {
+      toast.error('No se pudo crear la suscripción');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // Vista previa de próxima renovación estimada (según fecha de contratación y ciclo)
+  const nextRenewalPreview = useMemo(() => {
+    if (!renewalDate || !formData.billing_cycle) return undefined;
+    const monthsToAdd = formData.billing_cycle === 'Annually' ? 12 : formData.billing_cycle === 'Quarterly' ? 3 : 1;
+    const d = new Date(renewalDate);
+    d.setMonth(d.getMonth() + monthsToAdd);
+    return format(d, 'PPP', { locale: es });
+  }, [renewalDate, formData.billing_cycle]);
 
   return (
     <UICard>
@@ -244,10 +203,6 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Checkbox id="reflect" checked={reflectInExpenses} onCheckedChange={v => setReflectInExpenses(Boolean(v))} />
-            <Label htmlFor="reflect">Reflejar también en Gastos</Label>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="service_name">Nombre del Servicio</Label>
@@ -258,22 +213,6 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                 onChange={(e) => handleInputChange("service_name", e.target.value)}
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoría</Label>
-              <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una categoría" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg">
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -291,7 +230,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
 
             <div className="space-y-2">
               <Label htmlFor="currency">Moneda</Label>
-              <Select value={formData.currency} onValueChange={(value) => handleInputChange("currency", value as Currency)}>
+              <Select value={formData.currency} onValueChange={(value) => handleInputChange("currency", value as string)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -322,7 +261,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
             </div>
 
             <div className="space-y-2">
-              <Label>Próxima Renovación</Label>
+              <Label>Fecha de contratación</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -346,6 +285,11 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                   />
                 </PopoverContent>
               </Popover>
+              {nextRenewalPreview && (
+                <p className="text-sm text-muted-foreground">
+                  Próxima renovación estimada: {nextRenewalPreview}
+                </p>
+              )}
             </div>
           </div>
 
@@ -356,29 +300,7 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
               Método de Pago
             </h3>
             
-            {/* Selección de tarjeta guardada */}
-            {cards.length > 0 && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="saved_card">Usar Tarjeta Guardada</Label>
-                  <Select value={formData.card_id} onValueChange={handleCardSelection}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una tarjeta guardada" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg">
-                      <SelectItem value="manual">Ingresar manualmente</SelectItem>
-                      {cards.filter(card => card.is_active).map((card) => (
-                        <SelectItem key={card.id} value={card.id}>
-                          {getCardDisplayName(card)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Separator />
-              </>
-            )}
-            
+            {/* Método y selector de tarjeta si aplica */}
             <div className="space-y-2">
               <Label htmlFor="payment_method">Método de Pago</Label>
               <Select value={formData.payment_method} onValueChange={(value) => handleInputChange("payment_method", value as PaymentMethod)}>
@@ -394,19 +316,18 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Débito Automático - Bank Selection */}
-            {formData.payment_method === "debit_auto" && (
+            
+            {(formData.payment_method === "credit_card" || formData.payment_method === "debit_card") && cards.length > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="bank_name">Banco</Label>
-                <Select value={formData.bank_name} onValueChange={(value) => handleInputChange("bank_name", value)}>
+                <Label htmlFor="saved_card">Tarjeta</Label>
+                <Select value={formData.card_id} onValueChange={handleCardSelection}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tu banco" />
+                    <SelectValue placeholder="Selecciona una tarjeta" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg">
-                    {argentineBanks.map((bank) => (
-                      <SelectItem key={bank} value={bank}>
-                        {bank}
+                    {cards.filter(c=>c.is_active).map((card) => (
+                      <SelectItem key={card.id} value={card.id}>
+                        {getCardDisplayName(card)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -414,77 +335,22 @@ const AddSubscriptionForm = ({ onSubmit, loading = false }: AddSubscriptionFormP
               </div>
             )}
 
-            {/* Tarjetas - Card Type and Last 4 Digits */}
-            {(formData.payment_method === "credit_card" || formData.payment_method === "debit_card") && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="card_type">Tipo de Tarjeta</Label>
-                  <Select value={formData.card_type} onValueChange={(value) => handleInputChange("card_type", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona el tipo" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg">
-                      {cardTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {/* Warning si tarjeta de crédito sin fecha de cierre */}
+            {useMemo(() => {
+              const selected = cards.find(c => c.id === formData.card_id);
+              if (!selected || selected.card_type !== 'credit') return null;
+              if (selected.closing_day) return null;
+              return (
+                <div className="flex items-start gap-2 text-amber-600 text-sm">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  <span>Tu tarjeta de crédito no tiene configurada la fecha de cierre. Configúrala en Medios de Pago para imputar el mes correcto.</span>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="card_last_digits">Últimos 4 Dígitos</Label>
-                  <Input
-                    id="card_last_digits"
-                    placeholder="1234"
-                    maxLength={4}
-                    value={formData.card_last_digits}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
-                      handleInputChange("card_last_digits", value);
-                    }}
-                  />
-                </div>
-              </div>
-            )}
+              );
+            }, [cards, formData.card_id])}
           </div>
 
-          {/* Notification Settings */}
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="enable_alerts"
-                checked={formData.enable_renewal_alert}
-                onCheckedChange={(checked) => handleInputChange("enable_renewal_alert", Boolean(checked))}
-              />
-              <Label htmlFor="enable_alerts">Habilitar alertas de renovación</Label>
-            </div>
-
-            {formData.enable_renewal_alert && (
-              <div className="space-y-2">
-                <Label htmlFor="alert_days">Notificar con</Label>
-                <Select 
-                  value={formData.alert_days_before.toString()} 
-                  onValueChange={(value) => handleInputChange("alert_days_before", parseInt(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-lg">
-                    {alertOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value.toString()}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Agregando...

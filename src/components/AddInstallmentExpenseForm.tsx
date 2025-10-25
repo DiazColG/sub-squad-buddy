@@ -11,7 +11,7 @@ import { useCards } from '@/hooks/useCards';
 import { toast } from 'sonner';
 
 export default function AddInstallmentExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
-  const { addExpense } = useExpenses();
+  const { addExpensesBulk } = useExpenses();
   const { profile } = useUserProfile();
   const { getExpenseCategories } = useFinancialCategories();
   const categories = getExpenseCategories();
@@ -48,12 +48,13 @@ export default function AddInstallmentExpenseForm({ onSuccess }: { onSuccess?: (
     try {
       const perInstallment = Math.round((total / n) * 100) / 100;
       const first = new Date(form.first_due_date);
-      // Creamos cada cuota como instancia con tags para agrupar
+      // Creamos cada cuota como instancia con tags para agrupar (bulk)
       const groupId = crypto.randomUUID();
+      const payloads: Array<Omit<CreateExpense, 'user_id'>> = [];
       for (let i = 0; i < n; i++) {
         const d = new Date(first);
         d.setMonth(d.getMonth() + i);
-        const payload: Omit<CreateExpense, 'user_id'> = {
+        payloads.push({
           name: `${form.name} — Cuota ${i+1}/${n}`,
           amount: perInstallment,
           frequency: 'once',
@@ -87,10 +88,16 @@ export default function AddInstallmentExpenseForm({ onSuccess }: { onSuccess?: (
           updated_at: null,
           created_at: null,
           vendor_name: null,
-        };
-        await addExpense(payload);
+        });
       }
-      toast.success(`Cuotas creadas (${n})`);
+      const created = await addExpensesBulk(payloads, { silent: true });
+      if (created.length === n) {
+        toast.success(`Cuotas creadas (${n})`);
+      } else if (created.length > 0) {
+        toast.warning(`Se crearon ${created.length} de ${n} cuotas`);
+      } else {
+        // addExpensesBulk ya emitió error, no duplicar
+      }
       onSuccess?.();
       setForm({
         name: '', financed_total: '', installments: 1, first_due_date: new Date().toISOString().slice(0,10),

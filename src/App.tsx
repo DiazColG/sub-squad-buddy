@@ -9,6 +9,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 // Deprecated screens: temporarily redirect routes to Expenses
 import { Installments } from "./pages/Installments";
+import Subscriptions from "./pages/Subscriptions";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
 import Feedback from "./pages/Feedback";
@@ -60,7 +61,13 @@ const App = () => {
               </Layout>
             </ProtectedRoute>
           } />
-          <Route path="/subscriptions" element={<Navigate to="/finance/expenses" replace />} />
+          <Route path="/subscriptions" element={
+            <ProtectedRoute>
+              <Layout>
+                <Subscriptions />
+              </Layout>
+            </ProtectedRoute>
+          } />
           <Route path="/housing-services" element={<Navigate to="/finance/expenses" replace />} />
           <Route path="/installments" element={
             <ProtectedRoute>

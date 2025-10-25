@@ -54,7 +54,7 @@ export function useExpenses() {
     }
   }, [user]);
 
-  const addExpense = async (payload: Omit<CreateExpense, 'user_id'>) => {
+  const addExpense = async (payload: Omit<CreateExpense, 'user_id'>, options?: { silent?: boolean }) => {
     if (!user) return undefined;
     try {
       const insertData: CreateExpense = { ...payload, user_id: user.id };
@@ -66,12 +66,75 @@ export function useExpenses() {
       if (error) throw error;
       const created = data as ExpenseRow;
       setExpenses(prev => [created, ...prev]);
-      toast.success('Gasto agregado');
+      if (!options?.silent) toast.success('Gasto agregado');
       return created;
     } catch (err) {
+      // Supabase/Postgrest error detail surfacing with safe typing
+      const e = (err as { message?: string; error_description?: string; details?: string; hint?: string; code?: string }) || {};
+      const msg = e.message || e.error_description || 'Error al agregar gasto';
+      const details = e.details || e.hint;
       console.error('Error adding expense:', err);
-      toast.error('Error al agregar gasto');
+
+      // Fallback path for CASE trigger errors: retry minimal insert, then update
+      const caseRegex = /case\s+not\s+found|missing\s+else|case\s+statement/i;
+      if (caseRegex.test(`${msg} ${details || ''}`)) {
+        try {
+          console.warn('[useExpenses.addExpense] CASE error detected, retrying with minimal insert');
+          const { name, amount, transaction_date } = payload as { name: string; amount: number; transaction_date?: string };
+          const minimal: CreateExpense = {
+            user_id: user.id,
+            name,
+            amount,
+            transaction_date: transaction_date || new Date().toISOString().slice(0, 10),
+          };
+          const { data: mdata, error: merr } = await supabase
+            .from('expenses')
+            .insert([minimal])
+            .select()
+            .single();
+          if (!merr && mdata) {
+            const created = mdata as ExpenseRow;
+            setExpenses(prev => [created, ...prev]);
+            if (!options?.silent) toast.success('Gasto agregado (modo compatible)');
+            // Best-effort patch with remaining fields (skip minimal ones and user_id)
+            const { name: _n, amount: _a, transaction_date: _d, user_id: _uid, ...rest } = (payload as unknown as UpdateExpense);
+            if (Object.keys(rest || {}).length > 0) {
+              try {
+                await supabase.from('expenses').update(rest as UpdateExpense).eq('id', created.id);
+              } catch (uerr) {
+                console.warn('[useExpenses.addExpense] Post-insert update failed:', uerr);
+              }
+            }
+            return created;
+          }
+        } catch (retryErr) {
+          console.warn('[useExpenses.addExpense] Minimal insert retry failed:', retryErr);
+        }
+      }
+
+      if (!options?.silent) toast.error(details ? `${msg}: ${details}` : msg);
       return undefined;
+    }
+  };
+
+  // Bulk insert utility for multiple expenses with a single toast
+  const addExpensesBulk = async (payloads: Array<Omit<CreateExpense, 'user_id'>>, options?: { silent?: boolean }) => {
+    if (!user || payloads.length === 0) return [] as ExpenseRow[];
+    try {
+      const insertData = payloads.map(p => ({ ...p, user_id: user.id })) as CreateExpense[];
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert(insertData)
+        .select();
+      if (error) throw error;
+      const created = (data as ExpenseRow[]) || [];
+      setExpenses(prev => [...created, ...prev]);
+      if (!options?.silent) toast.success(`Gastos agregados (${created.length})`);
+      return created;
+    } catch (err) {
+      console.error('Error adding expenses bulk:', err);
+      if (!options?.silent) toast.error('Error al crear las cuotas');
+      return [] as ExpenseRow[];
     }
   };
 
@@ -235,7 +298,7 @@ export function useExpenses() {
   };
 
   const isExpensePaid = (e: ExpenseRow) => Array.isArray(e.tags) && e.tags.includes('paid');
-  const markExpensePaid = async (id: string, paidAt?: string) => {
+  const markExpensePaid = async (id: string, paidAt?: string, options?: { silent?: boolean }) => {
     const exp = expenses.find(e => e.id === id);
     if (!exp) return undefined;
     if (isExpensePaid(exp)) return exp;
@@ -243,9 +306,9 @@ export function useExpenses() {
     const newTags = [ ...(exp.tags || []), 'paid', `paid-at:${dateStr}` ];
     // First, write payment record (idempotent by expense_id)
     const currency = exp.currency || 'USD';
-    await paymentsApi.upsertPayment({ expense_id: id, amount: exp.amount, currency, paid_at: dateStr });
+    await paymentsApi.upsertPayment({ expense_id: id, amount: exp.amount, currency, paid_at: dateStr }, { silent: options?.silent });
     const updated = await updateExpense(id, { tags: newTags });
-    if (updated) toast.success('Marcado como pagado');
+    if (updated && !options?.silent) toast.success('Marcado como pagado');
     return updated;
   };
 
@@ -321,6 +384,7 @@ export function useExpenses() {
     expenses,
     loading,
     addExpense,
+    addExpensesBulk,
     updateExpense,
     deleteExpense,
     refetch: fetchExpenses,

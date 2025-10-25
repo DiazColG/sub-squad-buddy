@@ -42,7 +42,7 @@ export function useExpensePayments() {
   const getByExpense = useCallback((expenseId: string) => payments.filter(r => r.expense_id === expenseId), [payments]);
   const getByMonth = useCallback((period: string) => payments.filter(r => r.period_month === period), [payments]);
 
-  const upsertPayment = useCallback(async (payload: Omit<ExpensePaymentInsert, 'user_id'>) => {
+  const upsertPayment = useCallback(async (payload: Omit<ExpensePaymentInsert, 'user_id'>, options?: { silent?: boolean }) => {
     if (!user) return undefined;
     try {
       const insertData: ExpensePaymentInsert = { ...payload, user_id: user.id };
@@ -62,11 +62,11 @@ export function useExpensePayments() {
         }
         return [rec, ...prev];
       });
-      toast.success('Pago registrado');
+      if (!options?.silent) toast.success('Pago registrado');
       return rec;
     } catch (err) {
       console.error('Error upserting expense payment:', err);
-      toast.error('No se pudo registrar el pago');
+      if (!options?.silent) toast.error('No se pudo registrar el pago');
       return undefined;
     }
   }, [user]);

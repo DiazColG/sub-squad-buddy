@@ -1,19 +1,49 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Calendar, DollarSign, CreditCard, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
-import { useInstallments } from "@/hooks/useInstallments";
-import { AddInstallmentForm } from "@/components/AddInstallmentForm";
+import { Calendar, DollarSign, CreditCard, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { EconomicAnalysisComponent } from "@/components/EconomicAnalysisComponent";
 import { economicService, type EconomicIndicator } from "@/lib/economicService";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// Removed add-installment modal from this page (creation is done in Gastos)
+import { useExpenses, type ExpenseRow } from "@/hooks/useExpenses";
+import type { InstallmentData } from "@/hooks/useInstallments";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscriptionsView } from "@/hooks/useSubscriptionsView";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const Installments = () => {
-  const { installments, isLoading } = useInstallments();
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Source of truth: expenses with installment tags
+  const { expenses, loading, isExpensePaid, markExpensePaid } = useExpenses();
+  const { user } = useAuth();
   const [economicIndicators, setEconomicIndicators] = useState<EconomicIndicator[]>([]);
+  // Subscriptions (read-only) view hook
+  const subsApi = useSubscriptionsView();
+
+  // Helpers for tags
+  const hasTag = (e: ExpenseRow, tag: string) => Array.isArray(e.tags) && e.tags.includes(tag);
+  const getTagValue = (e: ExpenseRow, prefix: string) => {
+    if (!Array.isArray(e.tags)) return undefined;
+    const found = e.tags.find(t => t.startsWith(prefix));
+    return found ? found.substring(prefix.length) : undefined;
+  };
+
+  // Auto-mark overdue installment instances as paid (persistently)
+  useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const toAutopay = (expenses as ExpenseRow[] || [])
+      .filter(e => hasTag(e, 'installment-instance'))
+      .filter(e => !isExpensePaid(e))
+      .filter(e => e.due_date && e.due_date <= todayStr);
+    if (toAutopay.length === 0) return;
+    (async () => {
+      for (const e of toAutopay) {
+        // Mark with the due_date as paid_at for accurate accrual history
+        await markExpensePaid(e.id, e.due_date || todayStr, { silent: true });
+      }
+    })();
+  }, [expenses, isExpensePaid, markExpensePaid]);
 
   // Load economic indicators when component mounts
   useEffect(() => {
@@ -31,7 +61,53 @@ export const Installments = () => {
     loadIndicators();
   }, []);
 
-  if (isLoading) {
+  // Build grouped installments from expenses
+  const groups = useMemo(() => {
+    const items = (expenses as ExpenseRow[] || []).filter(e => hasTag(e, 'installment-instance'));
+    const byGroup = new Map<string, ExpenseRow[]>();
+    for (const e of items) {
+      const gid = getTagValue(e, 'installment-group:');
+      if (!gid) continue;
+      const arr = byGroup.get(gid) || [];
+      arr.push(e);
+      byGroup.set(gid, arr);
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const toNumber = (s?: string) => (s ? Number(s) : undefined);
+    const adapt = (gid: string, rows: ExpenseRow[]): InstallmentData => {
+      const sorted = rows.slice().sort((a,b) => (a.due_date || a.transaction_date).localeCompare(b.due_date || b.transaction_date));
+      const nameBase = (sorted[0]?.name || '').split(' — Cuota')[0] || sorted[0]?.name || 'Compra en cuotas';
+      const totalInstallments = toNumber(getTagValue(sorted[0], 'installment-total:')) || rows.length;
+      const paidCount = rows.filter(r => (Array.isArray(r.tags) && r.tags.includes('paid')) || ((r.due_date || '') <= today)).length;
+      const unpaid = rows.filter(r => !((Array.isArray(r.tags) && r.tags.includes('paid')) || ((r.due_date || '') <= today)));
+      const nextDue = unpaid.length > 0 ? (unpaid[0].due_date || unpaid[0].transaction_date) : (rows[rows.length-1].due_date || rows[rows.length-1].transaction_date);
+      const perAmount = rows[0]?.amount || 0;
+      const totalAmount = rows.reduce((s, r) => s + (r.amount || 0), 0);
+      const firstDate = sorted[0]?.transaction_date || sorted[0]?.due_date || today;
+      const dueDay = new Date(nextDue).getDate();
+      const status: InstallmentData['status'] = paidCount >= totalInstallments ? 'completed' : 'active';
+      return {
+        id: gid,
+        user_id: user?.id || '',
+        purchase_name: nameBase,
+        total_amount: totalAmount,
+        installment_amount: perAmount,
+        total_installments: totalInstallments,
+        paid_installments: Math.min(paidCount, totalInstallments),
+        due_day: dueDay,
+        card_id: rows[0]?.card_id || undefined,
+        category: 'general',
+        purchase_date: firstDate,
+        next_due_date: nextDue,
+        status,
+        created_at: rows[0]?.created_at || firstDate,
+        updated_at: rows[0]?.updated_at || firstDate,
+      } as InstallmentData;
+    };
+    return Array.from(byGroup.entries()).map(([gid, rows]) => adapt(gid, rows));
+  }, [expenses, user]);
+
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="animate-pulse space-y-4">
@@ -46,10 +122,8 @@ export const Installments = () => {
     );
   }
 
-  const activeInstallments = installments?.filter(i => i.status === 'active') || [];
-  const totalMonthlyCommitment = activeInstallments.reduce(
-    (sum, installment) => sum + Number(installment.installment_amount), 0
-  );
+  const activeInstallments = groups.filter(i => i.status === 'active');
+  const totalMonthlyCommitment = activeInstallments.reduce((sum, inst) => sum + Number(inst.installment_amount || 0), 0);
 
   const upcomingPayments = activeInstallments
     .filter(i => {
@@ -106,21 +180,6 @@ export const Installments = () => {
             Gestiona tus compras en cuotas y analiza su impacto económico
           </p>
         </div>
-        
-        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Agregar Cuota
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Agregar Nueva Compra en Cuotas</DialogTitle>
-            </DialogHeader>
-            <AddInstallmentForm onSuccess={() => setShowAddForm(false)} />
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Summary Cards */}
@@ -333,6 +392,102 @@ export const Installments = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Suscripciones (solo ver/control) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>🧩 Suscripciones</CardTitle>
+              <CardDescription>Vista de tus suscripciones activas y próximas renovaciones</CardDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-600">Activas</div>
+              <div className="text-2xl font-bold">{subsApi.activeCount}</div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Próximas renovaciones */}
+          {subsApi.upcoming7.length > 0 && (
+            <div>
+              <div className="font-medium mb-2">Próximas renovaciones (7 días)</div>
+              <div className="space-y-2">
+                {subsApi.upcoming7.map(s => {
+                  const due = new Date(s.nextRenewalDate);
+                  const today = new Date();
+                  const diff = Math.ceil((due.getTime()-today.getTime())/(1000*60*60*24));
+                  return (
+                    <div key={`upcoming-${s.id}`} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">📦</span>
+                        <div>
+                          <div className="font-medium">{s.serviceName}</div>
+                          <div className="text-xs text-gray-500">{s.cycle}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formatCurrency(s.amountPerCycle)} {s.currency}</div>
+                        <Badge variant={diff <= 2 ? 'destructive' : 'secondary'}>
+                          {diff === 0 ? 'Hoy' : diff === 1 ? 'Mañana' : `${diff} días`}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Listado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {subsApi.subscriptions.map(s => (
+              <Card key={s.id} className="border rounded-lg">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span>📦</span>
+                        {s.serviceName}
+                      </CardTitle>
+                      <CardDescription className="capitalize">{s.cycle}</CardDescription>
+                    </div>
+                    <Badge>{s.status}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="text-gray-600">Costo</div>
+                      <div className="font-semibold">{formatCurrency(s.amountPerCycle)} {s.currency}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600">Próx. renovación</div>
+                      <div className="font-semibold">{new Date(s.nextRenewalDate).toLocaleDateString('es-AR')}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="text-gray-600">Medio de pago</div>
+                      <div className="font-semibold">
+                        {s.payment?.bank ? `${s.payment.bank} •••• ${s.payment.cardLast4}` : (s.payment?.kind || '—')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-600">Mensual equivalente</div>
+                      <div className="font-semibold">{formatCurrency(s.monthlyEquivalent)} {s.currency}</div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`user-${s.id}`}>Usuario (opcional)</Label>
+                    <Input id={`user-${s.id}`} defaultValue={s.username || ''} onBlur={(e) => subsApi.setUsername(s.id, e.target.value)} placeholder="tu usuario en el servicio" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -25,7 +25,7 @@ export default function AddExpenseTabs({ onClose }: { onClose?: () => void }) {
             <AddInstallmentExpenseForm onSuccess={onClose} />
           </TabsContent>
           <TabsContent value="suscripcion">
-            <AddSubscriptionForm onSubmit={async () => { /* El propio formulario ya refleja en gastos si está activado */ }} />
+            <AddSubscriptionForm onSuccess={onClose} />
           </TabsContent>
         </div>
       </Tabs>

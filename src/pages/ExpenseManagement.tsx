@@ -13,6 +13,8 @@ import { useExpensePayments } from '@/hooks/useExpensePayments';
 import AddExpenseTabs from '@/components/AddExpenseTabs';
 import ExpenseHistory from '@/components/ExpenseHistory';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const ExpenseManagement = () => {
   // removed beta gating usage
@@ -27,7 +29,7 @@ const ExpenseManagement = () => {
   const paymentsApi = useExpensePayments();
   const [dismissedTemplates, setDismissedTemplates] = useState<string[]>([]);
   const pendingRecurrent = getPendingRecurringForMonth(new Date()).filter(it => !dismissedTemplates.includes(it.template.id));
-  const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string } | null>(null);
+  const [editingPending, setEditingPending] = useState<{ templateId: string; amount: string; date: string; currency: string } | null>(null);
   const dueSoon = getDueSoonRecurring(new Date());
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [dupDialog, setDupDialog] = useState<null | { templateId: string; date: string; amount: number; duplicates: ExpenseRow[] }>(null);
@@ -134,7 +136,7 @@ const ExpenseManagement = () => {
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="ghost" onClick={() => snoozeRecurringTemplate(item.template.id, 7)}>Posponer 7 días</Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingPending({ templateId: item.template.id, amount: String(item.suggested.amount), date: item.suggested.date })}>Editar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingPending({ templateId: item.template.id, amount: String(item.suggested.amount), date: item.suggested.date, currency: item.template.currency || userCurrency })}>Editar</Button>
                       <Button size="sm" onClick={() => {
                         const dups = findDuplicatesForTemplateInMonth(item.template.id, item.suggested.date);
                         if (dups.length > 0) {
@@ -342,13 +344,26 @@ const ExpenseManagement = () => {
               <h3 className="text-lg font-semibold">Editar gasto recurrente</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm text-muted-foreground">Monto</label>
+                  <Label className="text-sm text-muted-foreground">Monto</Label>
                   <input className="w-full border rounded px-2 py-1" type="number" step="0.01" value={editingPending.amount} onChange={e => setEditingPending(prev => prev && ({ ...prev, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Fecha</label>
+                  <Label className="text-sm text-muted-foreground">Fecha</Label>
                   <input className="w-full border rounded px-2 py-1" type="date" value={editingPending.date} onChange={e => setEditingPending(prev => prev && ({ ...prev, date: e.target.value }))} />
                 </div>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Moneda</Label>
+                <Select value={editingPending.currency} onValueChange={v => setEditingPending(prev => prev && ({ ...prev, currency: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    {['USD','EUR','ARS','BRL','CLP','UYU'].map(ccy => (
+                      <SelectItem key={ccy} value={ccy}>{ccy}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditingPending(null)}>Cancelar</Button>
@@ -358,7 +373,7 @@ const ExpenseManagement = () => {
                     setDupDialog({ templateId: editingPending.templateId, date: editingPending.date, amount: Number(editingPending.amount), duplicates: dups });
                     return;
                   }
-                  confirmRecurringForMonth(editingPending.templateId, { amount: Number(editingPending.amount), date: editingPending.date }).then(created => {
+                  confirmRecurringForMonth(editingPending.templateId, { amount: Number(editingPending.amount), date: editingPending.date, currency: editingPending.currency }).then(created => {
                     if (created) setDismissedTemplates(prev => [...prev, editingPending.templateId]);
                     setEditingPending(null);
                   });

@@ -9,7 +9,10 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string, accountType: 'personal' | 'team') => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -123,6 +126,69 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+
+      if (error) {
+        toast.error('Error al conectar con Google');
+        return { error };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      toast.error('Error de conexión. Verifica tu internet');
+      return { error };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        toast.error('Error al enviar el correo de recuperación');
+        return { error };
+      }
+
+      toast.success('¡Email enviado! Revisa tu bandeja de entrada');
+      return { error: null };
+    } catch (error: any) {
+      toast.error('Error al procesar la solicitud');
+      return { error };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        toast.error('Error al actualizar la contraseña');
+        return { error };
+      }
+
+      toast.success('¡Contraseña actualizada exitosamente!');
+      return { error: null };
+    } catch (error: any) {
+      toast.error('Error al procesar la solicitud');
+      return { error };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -130,7 +196,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading, 
       signUp, 
       signIn, 
-      signOut 
+      signInWithGoogle,
+      signOut,
+      resetPassword,
+      updatePassword
     }}>
       {children}
     </AuthContext.Provider>

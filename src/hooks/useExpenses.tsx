@@ -326,7 +326,7 @@ export function useExpenses() {
 
   const confirmRecurringForMonth = async (
     templateId: string,
-    options?: { amount?: number; date?: string }
+    options?: { amount?: number; date?: string; currency?: string }
   ) => {
     const template = expenses.find(e => e.id === templateId);
     if (!template) {
@@ -352,7 +352,7 @@ export function useExpenses() {
       is_recurring: false,
       recurring_day: null,
       card_id: template.card_id,
-      currency: template.currency,
+      currency: options?.currency ?? template.currency,
       due_date: template.due_date,
       expense_type: template.expense_type,
       flexibility_level: template.flexibility_level,

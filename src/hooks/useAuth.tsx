@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
+import { useAnalytics } from '@/lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const analytics = useAnalytics();
 
   useEffect(() => {
     // Set up auth state listener
@@ -29,6 +31,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Track authentication events
+        if (event === 'SIGNED_IN' && session?.user) {
+          analytics.identify(session.user.id, {
+            email: session.user.email,
+            name: session.user.user_metadata?.full_name,
+            account_type: session.user.user_metadata?.account_type,
+          });
+        } else if (event === 'SIGNED_OUT') {
+          analytics.reset();
+        }
       }
     );
 
@@ -37,6 +50,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Identify existing user
+      if (session?.user) {
+        analytics.identify(session.user.id, {
+          email: session.user.email,
+          name: session.user.user_metadata?.full_name,
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -46,7 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -59,13 +80,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        analytics.track('signup_failed', { error: error.message, method: 'email' });
         toast.error(error.message);
         return { error };
       }
 
+      // Track successful signup
+      analytics.track('user_signed_up', {
+        method: 'email',
+        account_type: accountType,
+      });
+
       toast.success('¡Cuenta creada! Revisa tu email para confirmar tu registro.');
       return { error: null };
     } catch (error: any) {
+      analytics.track('signup_error', { error: 'Unknown error' });
       toast.error('Error al crear la cuenta');
       return { error };
     }
@@ -92,6 +121,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Track failed login
+        analytics.track('login_failed', {
+          error: error.message,
+          method: 'email',
+        });
+
         // Handle specific Supabase errors
         if (error.message === 'Invalid login credentials') {
           toast.error('Email o contraseña incorrectos');
@@ -105,9 +140,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error };
       }
 
+      // Track successful login
+      analytics.track('user_logged_in', {
+        method: 'email',
+      });
+
       toast.success('¡Bienvenido de vuelta!');
       return { error: null };
     } catch (error: any) {
+      analytics.track('login_error', { error: 'Connection error' });
       toast.error('Error de conexión. Verifica tu internet');
       return { error };
     }
@@ -140,12 +181,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Track Google OAuth failure
+        analytics.track('login_failed', {
+          error: error.message,
+          method: 'google',
+        });
         toast.error('Error al conectar con Google');
         return { error };
       }
 
+      // Note: Successful Google login will be tracked in the useEffect
+      // when the session is established after redirect
       return { error: null };
     } catch (error: any) {
+      analytics.track('login_error', {
+        error: 'Connection error',
+        method: 'google',
+      });
       toast.error('Error de conexión. Verifica tu internet');
       return { error };
     }
@@ -158,13 +210,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Track password reset request failure
+        analytics.track('password_reset_requested', {
+          success: false,
+          error: error.message,
+        });
         toast.error('Error al enviar el correo de recuperación');
         return { error };
       }
 
+      // Track successful password reset request
+      analytics.track('password_reset_requested', {
+        success: true,
+      });
+
       toast.success('¡Email enviado! Revisa tu bandeja de entrada');
       return { error: null };
     } catch (error: any) {
+      analytics.track('password_reset_error', {
+        error: 'Unknown error',
+      });
       toast.error('Error al procesar la solicitud');
       return { error };
     }
@@ -177,13 +242,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Track password update failure
+        analytics.track('password_updated', {
+          success: false,
+          error: error.message,
+        });
         toast.error('Error al actualizar la contraseña');
         return { error };
       }
 
+      // Track successful password update
+      analytics.track('password_updated', {
+        success: true,
+      });
+
       toast.success('¡Contraseña actualizada exitosamente!');
       return { error: null };
     } catch (error: any) {
+      analytics.track('password_update_error', {
+        error: 'Unknown error',
+      });
       toast.error('Error al procesar la solicitud');
       return { error };
     }

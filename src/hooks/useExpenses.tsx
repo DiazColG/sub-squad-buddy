@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 import { useExpensePayments } from '@/hooks/useExpensePayments';
+import { useAnalytics } from '@/lib/analytics';
 
 export type ExpenseRow = Database['public']['Tables']['expenses']['Row'];
 export type CreateExpense = Database['public']['Tables']['expenses']['Insert'];
@@ -14,6 +15,7 @@ export function useExpenses() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const paymentsApi = useExpensePayments();
+  const analytics = useAnalytics();
   
   const monthKey = (d: Date | string) => {
     const date = typeof d === 'string' ? new Date(d) : d;
@@ -66,6 +68,16 @@ export function useExpenses() {
       if (error) throw error;
       const created = data as ExpenseRow;
       setExpenses(prev => [created, ...prev]);
+      
+      // Track expense creation
+      analytics.track('expense_created', {
+        expense_type: created.expense_type,
+        amount: created.amount,
+        currency: created.currency,
+        payment_method: created.payment_method,
+        is_recurring: hasTag(created, 'recurring'),
+      });
+      
       if (!options?.silent) toast.success('Gasto agregado');
       return created;
     } catch (err) {

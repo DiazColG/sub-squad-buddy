@@ -14,27 +14,39 @@ Simply visit the [Lovable Project](https://lovable.dev/projects/8c51cfc0-3390-42
 
 Changes made via Lovable will be committed automatically to this repo.
 
-**Use your preferred IDE**
+## 🚀 Quick Start
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites:
+- Node.js 18+ & npm
+- Git
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Setup:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# 1. Clone the repository
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 2. Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Configure environment variables
+# Create .env.local file with:
+VITE_POSTHOG_KEY=your_posthog_api_key
+VITE_POSTHOG_HOST=https://app.posthog.com
+VITE_ANALYTICS_ENABLED=true
+
+# 4. Start development server
 npm run dev
 ```
+
+### 📊 Analytics Setup:
+See: `/docs/QUICK_SETUP.md` for PostHog configuration (5 minutes)
+
+### 🔐 Authentication:
+- Local development uses Supabase test environment
+- Production uses Google OAuth + email/password
+- See: `/docs/AUTH_IMPROVEMENTS_SUMMARY.md`
 
 **Edit a file directly in GitHub**
 
@@ -52,47 +64,106 @@ npm run dev
 
 ## Tech Stack
 
-Core:
-- Vite + React + TypeScript
-- Tailwind CSS + shadcn-ui
-- Supabase (Auth, PostgREST, RLS)
-- React Query (data fetching layer en evolución, algunos hooks manuales también)
+### Core:
+- **Frontend:** Vite + React 18 + TypeScript
+- **Styling:** Tailwind CSS + shadcn-ui components
+- **Backend:** Supabase (Auth, PostgREST, RLS)
+- **Data Fetching:** React Query + Custom hooks
+- **Routing:** React Router v6
 
-Utilities / Otros:
-- Lucide Icons, Zod, react-hook-form
+### Features:
+- **Authentication:** 
+  - Email/Password with validation
+  - Google OAuth integration
+  - Password recovery flow
+- **Analytics:** PostHog (events + session replay)
+- **Icons:** Lucide React
+- **Forms:** React Hook Form + Zod validation
 
-Desactivado temporalmente:
-- Servicio de emails (Resend) → removida la dependencia; `emailService` es un no-op seguro.
+### Infrastructure:
+- **Hosting:** Vercel (SPA configuration)
+- **Database:** Supabase PostgreSQL
+- **Auth:** Supabase Auth
+- **Analytics:** PostHog Cloud
 
-## Supabase & Tipos
+### Upcoming:
+- Custom email system (Resend + React Email)
 
-Generar tipos actualizados (requiere instalar CLI de supabase y exportar SUPABASE_PROJECT_ID):
+## 📚 Documentation
+
+- **[Quick Setup Guide](/docs/QUICK_SETUP.md)** - 5-minute analytics setup
+- **[Analytics & Email Setup](/docs/ANALYTICS_EMAIL_SETUP.md)** - Comprehensive guide
+- **[Auth Improvements](/docs/AUTH_IMPROVEMENTS_SUMMARY.md)** - OAuth & password recovery
+- **[Google OAuth Setup](/docs/SUPABASE_GOOGLE_OAUTH_SETUP.md)** - Step-by-step configuration
+- **[Analytics Implementation](/docs/releases/ANALYTICS_IMPLEMENTATION.md)** - Technical details
+
+## 🔧 Development
+
+### Supabase & Types
+
+Generate updated types (requires Supabase CLI + SUPABASE_PROJECT_ID):
 
 ```sh
-export SUPABASE_PROJECT_ID=<id-proyecto>
+export SUPABASE_PROJECT_ID=<project-id>
 npm run gen:types
 ```
 
-Esto sobreescribe `src/integrations/supabase/types.ts`. Después de regenerar:
-- Revisar discrepancias con tipos manuales (ej. budgets) y eliminar comentarios de deuda si ya coinciden.
-- Commit controlado para facilitar diff.
+This overwrites `src/integrations/supabase/types.ts`. After regenerating:
+- Review discrepancies with manual types
+- Commit controlled changes for easy diff
 
-## Email Service (Feedback)
+### Available Scripts:
 
-El archivo `src/lib/emailService.ts` es actualmente un no-op (retorna true sin enviar). Para reactivarlo:
-1. `npm install resend`
-2. Añadir `VITE_RESEND_API_KEY` en entorno build.
-3. Reimplementar la función `sendFeedbackNotification` con la lógica removida (ver historial git).
-4. Evitar exponer claves sensibles (usar solo las públicas si aplica o un edge function en Supabase).
+```sh
+npm run dev          # Start development server
+npm run build        # Production build
+npm run preview      # Preview production build
+npm run gen:types    # Generate Supabase types
+```
 
-## How can I deploy this project?
+## 🚀 Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/8c51cfc0-3390-423d-bfbb-3c440e7b1520) and click on Share -> Publish.
+### Vercel (Current):
+1. Push to main branch
+2. Vercel auto-deploys
+3. Add environment variables in Vercel Dashboard
 
-## Can I connect a custom domain to my Lovable project?
+**Required Environment Variables:**
+```
+VITE_POSTHOG_KEY=phc_xxxxx
+VITE_POSTHOG_HOST=https://app.posthog.com
+VITE_ANALYTICS_ENABLED=true
+```
 
-Yes, you can!
+### Custom Domain:
+Navigate to Project > Settings > Domains in Lovable
+Read more: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📊 Features
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Current:
+- ✅ Multi-currency expense tracking
+- ✅ Recurring expenses & subscriptions
+- ✅ Budget management
+- ✅ Income tracking
+- ✅ FIRE calculator
+- ✅ Housing services management
+- ✅ Google OAuth login
+- ✅ Password recovery
+- ✅ Analytics & session replay
+
+### In Progress:
+- 🔄 Custom email templates
+- 🔄 Advanced analytics dashboards
+
+## 🔐 Security
+
+- Environment variables for all secrets
+- Supabase RLS (Row Level Security)
+- Google OAuth 2.0
+- Password strength validation
+- HTTPS only in production
+
+## 📝 License
+
+[Your License Here]

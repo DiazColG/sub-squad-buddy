@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { addLocalBudget, loadLocalBudgets, removeLocalBudget } from '@/lib/budgetsLocal';
+import { useAnalytics } from '@/lib/analytics';
 
 /** NOTE SOBRE EL ESQUEMA
  * Hay una discrepancia entre el archivo de migraciones y el archivo generado de tipos.
@@ -60,6 +61,7 @@ export function useBudgets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [localMode, setLocalMode] = useState(false);
+  const analytics = useAnalytics();
 
   const fetchBudgets = useCallback(async () => {
     // Evitamos fetch hasta que el estado de auth esté resuelto para no disparar toasts "falsos".
@@ -292,6 +294,15 @@ export function useBudgets() {
           .single();
         if (error) throw error;
         setRows(prev => [data as unknown as RawBudgetRow, ...prev]);
+        
+        // Track budget creation
+        analytics.track('budget_created', {
+          period_type: payload.period_type,
+          budgeted_amount: payload.budgeted_amount,
+          has_category: !!categoryIdNormalized,
+          alert_threshold: payload.alert_threshold,
+        });
+        
         toast.success('Presupuesto creado');
         return data as unknown as RawBudgetRow;
       }

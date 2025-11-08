@@ -6,6 +6,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useCurrencyExchange } from "@/hooks/useCurrencyExchange";
 import { useAuth } from "@/hooks/useAuth";
 import { useFireScenarios } from "@/hooks/useFireScenarios";
+import { useAnalytics } from "@/lib/analytics";
 import type { Database } from "@/integrations/supabase/types";
 
 type Scenario = {
@@ -27,6 +28,7 @@ export default function FIRECalculator() {
   const { formatCurrency: fmt } = useCurrencyExchange();
   const currency = profile?.primary_display_currency || 'USD';
   const { items, createOne, deleteOne } = useFireScenarios();
+  const analytics = useAnalytics();
 
   // Raw string states (permiten "" y evitan ceros forzados / saltos de cursor)
   const [monthlyExpensesInput, setMonthlyExpensesInput] = useState<string>("200000");
@@ -124,6 +126,20 @@ export default function FIRECalculator() {
 
   const years = Math.floor((estimateMonthsToFire || 0) / 12);
   const months = Math.max(0, (estimateMonthsToFire || 0) - years * 12);
+
+  // Track FIRE calculator usage
+  useEffect(() => {
+    if (fireNumber > 0 && currentPortfolio > 0) {
+      analytics.track('fire_calculator_used', {
+        fire_number: fireNumber,
+        current_portfolio: currentPortfolio,
+        progress_percentage: progressPct,
+        estimated_months: estimateMonthsToFire,
+        withdrawal_rate: withdrawalRate * 100,
+        currency,
+      });
+    }
+  }, [fireNumber]); // Solo track cuando cambia el FIRE number
 
   const handleSave = async () => {
     const name = scenarioName.trim() || `Escenario ${new Date().toLocaleDateString()}`;

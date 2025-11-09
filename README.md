@@ -35,6 +35,7 @@ npm install
 VITE_POSTHOG_KEY=your_posthog_api_key
 VITE_POSTHOG_HOST=https://app.posthog.com
 VITE_ANALYTICS_ENABLED=true
+VITE_RESEND_API_KEY=your_resend_api_key  # For email system
 
 # 4. Start development server
 npm run dev
@@ -77,6 +78,7 @@ See: `/docs/QUICK_SETUP.md` for PostHog configuration (5 minutes)
   - Google OAuth integration
   - Password recovery flow
 - **Analytics:** PostHog (events + session replay)
+- **Emails:** Resend + React Email (Welcome, Password Reset, Monthly Insights)
 - **Icons:** Lucide React
 - **Forms:** React Hook Form + Zod validation
 
@@ -85,13 +87,13 @@ See: `/docs/QUICK_SETUP.md` for PostHog configuration (5 minutes)
 - **Database:** Supabase PostgreSQL
 - **Auth:** Supabase Auth
 - **Analytics:** PostHog Cloud
-
-### Upcoming:
-- Custom email system (Resend + React Email)
+- **Emails:** Resend (transactional + marketing)
 
 ## 📚 Documentation
 
 - **[Quick Setup Guide](/docs/QUICK_SETUP.md)** - 5-minute analytics setup
+- **[Email System Master Plan](/docs/EMAIL_SYSTEM_MASTER_PLAN.md)** - Complete email strategy
+- **[Resend Quick Setup](/docs/RESEND_SETUP_QUICK.md)** - Email configuration guide
 - **[Analytics & Email Setup](/docs/ANALYTICS_EMAIL_SETUP.md)** - Comprehensive guide
 - **[Auth Improvements](/docs/AUTH_IMPROVEMENTS_SUMMARY.md)** - OAuth & password recovery
 - **[Google OAuth Setup](/docs/SUPABASE_GOOGLE_OAUTH_SETUP.md)** - Step-by-step configuration

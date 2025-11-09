@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
 import { useAnalytics } from '@/lib/analytics';
+import { sendWelcomeEmail } from '@/lib/emailService';
 
 interface AuthContextType {
   user: User | null;
@@ -90,6 +91,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         method: 'email',
         account_type: accountType,
       });
+
+      // Send welcome email (non-blocking)
+      if (data?.user) {
+        sendWelcomeEmail({
+          to: email,
+          userName: fullName,
+          loginUrl: `${window.location.origin}/dashboard`,
+        }).catch(err => {
+          console.error('[Auth] Failed to send welcome email:', err);
+          // Don't block signup flow if email fails
+        });
+      }
 
       toast.success('¡Cuenta creada! Revisa tu email para confirmar tu registro.');
       return { error: null };

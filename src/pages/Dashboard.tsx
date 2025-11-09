@@ -204,21 +204,26 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+      {/* Header - Mobile optimized */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen del mes basado en movimientos reales</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Resumen del mes basado en movimientos reales</p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/analytics">
-            <Button variant="secondary" className="gap-2">
-              <BarChart3 className="h-4 w-4" /> Ver analíticas
+        <div className="flex flex-wrap gap-2">
+          <Link to="/analytics" className="flex-1 md:flex-none">
+            <Button variant="secondary" className="gap-2 w-full md:w-auto">
+              <BarChart3 className="h-4 w-4" /> 
+              <span className="hidden sm:inline">Ver analíticas</span>
+              <span className="sm:hidden">Analíticas</span>
             </Button>
           </Link>
-          <Link to="/finance/expenses">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Agregar Gasto
+          <Link to="/finance/expenses" className="flex-1 md:flex-none">
+            <Button className="gap-2 w-full md:w-auto">
+              <Plus className="h-4 w-4" /> 
+              <span className="hidden sm:inline">Agregar Gasto</span>
+              <span className="sm:hidden">Gasto</span>
             </Button>
           </Link>
         </div>

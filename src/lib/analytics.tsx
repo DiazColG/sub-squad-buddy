@@ -24,6 +24,14 @@ export const AnalyticsProvider = ({ children }: AnalyticsProviderProps) => {
       const apiHost = import.meta.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';
 
       if (apiKey) {
+        // Detect device type and screen size
+        const getDeviceType = () => {
+          const width = window.innerWidth;
+          if (width < 768) return 'mobile';
+          if (width < 1024) return 'tablet';
+          return 'desktop';
+        };
+
         posthog.init(apiKey, {
           api_host: apiHost,
           autocapture: false, // We'll manually track important events
@@ -37,11 +45,41 @@ export const AnalyticsProvider = ({ children }: AnalyticsProviderProps) => {
           persistence: 'localStorage',
           disable_surveys: true, // Can enable later
           loaded: (posthog) => {
+            // Set device properties on init
+            posthog.register({
+              device_type: getDeviceType(),
+              screen_width: window.innerWidth,
+              screen_height: window.innerHeight,
+              viewport_ratio: `${window.innerWidth}x${window.innerHeight}`,
+            });
+
             if (import.meta.env.DEV) {
               posthog.debug(); // Debug in development
             }
           }
         });
+
+        // Track device type changes on resize (debounced)
+        let resizeTimeout: NodeJS.Timeout;
+        const handleResize = () => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            if (posthog && posthog.__loaded) {
+              posthog.register({
+                device_type: getDeviceType(),
+                screen_width: window.innerWidth,
+                screen_height: window.innerHeight,
+                viewport_ratio: `${window.innerWidth}x${window.innerHeight}`,
+              });
+            }
+          }, 500);
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          clearTimeout(resizeTimeout);
+        };
       }
     }
 
